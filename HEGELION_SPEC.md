@@ -271,10 +271,12 @@ ANTHROPIC_API_KEY=your-anthropic-api-key-here
 **OpenAI:**
 ```bash
 HEGELION_PROVIDER=openai
-HEGELION_MODEL=gpt-4.1-mini
+HEGELION_MODEL=gpt-4.1
 OPENAI_API_KEY=your-openai-api-key-here
 # OPENAI_BASE_URL=https://api.openai.com/v1
 ```
+
+> Tested baselines: `gpt-4.1` (chat/completions, recommended) and `gpt-4.1-mini` (lower-cost baseline) both complete the Thesis → Antithesis → Synthesis loop without tweaks.
 
 **Custom HTTP backend (advanced):**
 ```bash

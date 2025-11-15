@@ -57,7 +57,7 @@ Hegelion runs any LLM through Thesis → Antithesis → Synthesis and ships the 
    For OpenAI:
    ```bash
    HEGELION_PROVIDER=openai
-   HEGELION_MODEL=gpt-4o
+   HEGELION_MODEL=gpt-4.1
    OPENAI_API_KEY=your-openai-api-key-here
    ```
 
