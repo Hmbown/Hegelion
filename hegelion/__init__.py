@@ -5,7 +5,7 @@ A Python package that generates structured thesis-antithesis-synthesis responses
 using Large Language Models, making reasoning patterns and contradictions explicit.
 """
 
-__version__ = "0.4.5"
+__version__ = "0.4.6"
 __author__ = "Hegelion Contributors"
 
 __all__ = [

@@ -1,6 +1,6 @@
 [project]
 name = "hegelion"
-version = "0.4.5"
+version = "0.4.6"
 description = "Prompt-driven dialectical reasoning and autocoding for LLMs (thesis -> antithesis -> synthesis)"
 requires-python = ">=3.10"
 readme = "README.md"
@@ -52,7 +52,7 @@ dev = [
     "pytest>=7.0",
     "pytest-asyncio>=0.21",
     "pytest-cov>=4.0",
-    "black>=23.0",
+    "black==26.1.0",
     "ruff>=0.1.0",
     "pre-commit>=3.0",
     "build>=1.0.0",
@@ -95,9 +95,15 @@ filterwarnings = [
 
 [dependency-groups]
 dev = [
-    "build==1.3.0",
-    "twine==6.2.0",
+    "pytest>=7.0",
+    "pytest-asyncio>=0.21",
+    "pytest-cov>=4.0",
     "pytest-timeout>=2.3.1",
+    "black==26.1.0",
+    "ruff>=0.1.0",
+    "pre-commit>=3.0",
+    "build>=1.0.0",
+    "twine>=5.0.0",
 ]
 
 [tool.black]
