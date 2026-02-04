@@ -236,6 +236,9 @@ Primary tool. Returns one prompt that guides the LLM through Thesis → Antithes
 Use Hegelion's dialectical_single_shot to analyze: "Can AI be creative?"
 ```
 
+Optional: single-call CLI execution (no server-side API keys). Configure the server with `HEGELION_LLM_COMMAND_JSON`
+and call with `execute: true` to return the final analysis directly.
+
 ### `dialectical_workflow`
 Returns a structured workflow for step-by-step execution. Use for complex queries.
 

@@ -89,6 +89,29 @@ def build_tools() -> list[Tool]:
                         ),
                         "default": "sections",
                     },
+                    "execute": {
+                        "type": "boolean",
+                        "description": (
+                            "If true, run the generated prompt through a configured LLM CLI "
+                            "(HEGELION_LLM_COMMAND_JSON or HEGELION_LLM_COMMAND) and return the model output."
+                        ),
+                        "default": False,
+                    },
+                    "timeout_seconds": {
+                        "type": "integer",
+                        "description": (
+                            "Timeout (seconds) for the LLM CLI call when execute=true (default: 120)."
+                        ),
+                        "default": 120,
+                    },
+                    "max_retries": {
+                        "type": "integer",
+                        "description": (
+                            "Best-effort retries if output fails basic format validation when execute=true "
+                            "(default: 0)."
+                        ),
+                        "default": 0,
+                    },
                 },
                 "required": ["query"],
             },

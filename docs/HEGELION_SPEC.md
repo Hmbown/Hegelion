@@ -32,12 +32,34 @@ Structured content:
   "use_search": false,
   "use_council": false,
   "response_style": "sections",
+  "mode": "prompt",
   "prompt": "...",
   "response_schema": { "optional": true }
 }
 ```
 
 `response_schema` appears when `response_style="json"`.
+
+Optional CLI execution:
+
+If `execute=true` is passed (or `HEGELION_MCP_AUTO_EXECUTE=1` is set) *and* the server is configured with
+`HEGELION_LLM_COMMAND_JSON` (preferred) or `HEGELION_LLM_COMMAND`, the tool runs the generated prompt through that CLI.
+
+In this mode, `content[0].text` is the model output (not the prompt), and structured content adds:
+
+```json
+{
+  "mode": "executed",
+  "llm_cli": "codex",
+  "timeout_seconds": 120,
+  "max_retries": 0,
+  "attempts": 1,
+  "returncode": 0,
+  "output": "...",
+  "stderr": { "optional": true },
+  "validation_error": { "optional": true }
+}
+```
 
 ### `dialectical_workflow`
 

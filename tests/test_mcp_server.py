@@ -1,5 +1,6 @@
 """Tests for model-agnostic MCP server."""
 
+import json
 import pytest
 from mcp.types import CallToolResult
 from hegelion.mcp.server import call_tool, list_tools
@@ -32,8 +33,9 @@ class TestPromptMCPServer:
         assert len(workflow["steps"]) >= 3
         assert workflow["instructions"]["response_style"] == "sections"
 
-    async def test_dialectical_single_shot_tool(self):
+    async def test_dialectical_single_shot_tool(self, monkeypatch):
         """Test single shot prompt tool."""
+        monkeypatch.delenv("HEGELION_MCP_AUTO_EXECUTE", raising=False)
         args = {"query": "test query", "use_council": True}
         result = await call_tool("dialectical_single_shot", args)
 
@@ -43,6 +45,37 @@ class TestPromptMCPServer:
         assert "test query" in prompt
         assert "THE LOGICIAN" in prompt
         assert structured["response_style"] == "sections"
+
+    async def test_dialectical_single_shot_execute_via_cli(self, monkeypatch):
+        """Test single shot tool execution via configured CLI."""
+        code = (
+            "import sys\n"
+            "data = sys.stdin.read()\n"
+            "ok = 'test query' in data\n"
+            "out = (\n"
+            "  '## THESIS\\nT\\n\\n'\n"
+            "  '## ANTITHESIS\\nA\\n\\n'\n"
+            "  '## SYNTHESIS\\nS\\n'\n"
+            ") if ok else 'BAD'\n"
+            "sys.stdout.write(out)\n"
+        )
+        monkeypatch.setenv("HEGELION_LLM_COMMAND_JSON", json.dumps(["python3", "-c", code]))
+        monkeypatch.delenv("HEGELION_MCP_AUTO_EXECUTE", raising=False)
+
+        contents, structured = await call_tool(
+            "dialectical_single_shot",
+            {"query": "test query", "execute": True, "response_style": "sections"},
+        )
+
+        assert len(contents) == 1
+        text = contents[0].text
+        assert "## THESIS" in text
+        assert "## ANTITHESIS" in text
+        assert "## SYNTHESIS" in text
+        assert structured["mode"] == "executed"
+        assert structured["llm_cli"] == "python3"
+        assert structured["returncode"] == 0
+        assert structured["output"] == text
 
     async def test_thesis_prompt_tool(self):
         """Test thesis prompt tool."""

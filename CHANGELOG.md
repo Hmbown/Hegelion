@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.4.5 – Optional CLI Execution for `dialectical_single_shot` (February 4, 2026)
+
+### Added
+- **Single-call CLI execution** for `dialectical_single_shot`: `execute`, `timeout_seconds`, `max_retries`, plus env-based configuration (`HEGELION_LLM_COMMAND_JSON`, `HEGELION_LLM_COMMAND`, `HEGELION_MCP_AUTO_EXECUTE=1`)
+- **`hegelion-setup-mcp` flags**: `--llm-command-json`, `--llm-command`, `--auto-execute` to configure CLI execution via MCP host config
+
 ## 0.4.4 – Simplified Skill & Command (January 21, 2026)
 
 ### Changed

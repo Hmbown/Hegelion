@@ -44,6 +44,38 @@ For most cases, use `dialectical_single_shot`. It returns a single comprehensive
 
 **Then execute the returned prompt.** The prompt contains instructions for you to perform the dialectical reasoning.
 
+### Single-call CLI execution (optional)
+
+If your MCP host does not reliably execute returned prompts (or you want `dialectical_single_shot` to return the final analysis directly), you can run the prompt through a configured LLM CLI.
+
+**1) Configure the MCP server env:**
+
+- `HEGELION_LLM_COMMAND_JSON` (preferred): a JSON array of command + args
+- `HEGELION_LLM_COMMAND` (fallback): a shell-style command string
+- `HEGELION_MCP_AUTO_EXECUTE=1` (optional): makes `execute` default to `true`
+
+Example `env` using Codex CLI (reads the prompt from stdin):
+
+```json
+{
+  "HEGELION_LLM_COMMAND_JSON": "[\"codex\",\"exec\",\"--sandbox\",\"read-only\",\"-\"]"
+}
+```
+
+**2) Call the tool with `execute: true`:**
+
+```json
+{
+  "query": "Is open source software sustainable?",
+  "response_style": "sections",
+  "execute": true
+}
+```
+
+Notes:
+- `use_search: true` only adds instructions; your CLI must support tool use for real grounding.
+- The CLI runs locally. Prefer a text-only runner (or a locked-down sandbox) to avoid unintended file access.
+
 ## Alternative: `dialectical_workflow`
 
 For more control, use `dialectical_workflow`. It returns a sequence of prompts you execute in order:

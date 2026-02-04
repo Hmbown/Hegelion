@@ -9,6 +9,9 @@ These options are available on `dialectical_workflow` and `dialectical_single_sh
 - `use_search` (boolean): Instructs the prompt to use search tools before reasoning. This only affects the prompt; your host must provide search tooling.
 - `use_council` (boolean): Adds Logician, Empiricist, and Ethicist critiques during antithesis.
 - `use_judge` (boolean, workflow-only): Adds a final judge evaluation step.
+- `execute` (boolean, single_shot-only): If true, runs the generated prompt through a configured LLM CLI and returns the model output.
+- `timeout_seconds` (integer, single_shot-only): Timeout for the LLM CLI call when `execute=true` (default: 120).
+- `max_retries` (integer, single_shot-only): Best-effort retries if output fails basic format validation when `execute=true` (default: 0).
 - `response_style` (string): Controls output formatting.
   - `sections` (default)
   - `json`
@@ -20,6 +23,16 @@ These options are available on `dialectical_workflow` and `dialectical_single_sh
   - `single_prompt`: returns a single consolidated prompt
 
 When `response_style` is `json`, the MCP response includes a `response_schema` that describes the expected JSON shape.
+
+### CLI Execution Configuration (Optional)
+
+To use `execute=true` without server-side API keys, configure one of:
+
+- `HEGELION_LLM_COMMAND_JSON`: JSON array of command + args (preferred)
+- `HEGELION_LLM_COMMAND`: shell-style command string (fallback)
+- `HEGELION_MCP_AUTO_EXECUTE=1`: makes `execute` default to `true` when omitted
+
+The prompt is sent to the CLI on stdin, and the CLI's stdout becomes the tool result.
 
 ## Autocoding Tool Options
 

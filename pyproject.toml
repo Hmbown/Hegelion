@@ -1,6 +1,6 @@
 [project]
 name = "hegelion"
-version = "0.4.4"
+version = "0.4.5"
 description = "Prompt-driven dialectical reasoning and autocoding for LLMs (thesis -> antithesis -> synthesis)"
 requires-python = ">=3.10"
 readme = "README.md"

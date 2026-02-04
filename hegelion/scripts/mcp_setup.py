@@ -25,6 +25,10 @@ Examples:
   hegelion-setup-mcp --host vscode
   hegelion-setup-mcp --host windsurf
 
+Optional: enable single-call CLI execution for `dialectical_single_shot` (no server-side API keys):
+  hegelion-setup-mcp --llm-command-json '["codex","exec","--sandbox","read-only","-"]'
+  hegelion-setup-mcp --auto-execute
+
 Note: After modifying the config, restart your MCP host for changes to take effect.
 """
 
@@ -108,13 +112,29 @@ def resolve_host_path(
     raise ValueError(f"Unknown host '{host}'. Choose from: {', '.join(KNOWN_HOSTS)}")
 
 
-def generate_config(python_path, project_root, is_installed):
+def generate_config(
+    python_path,
+    project_root,
+    is_installed,
+    *,
+    llm_command: str | None = None,
+    llm_command_json: str | None = None,
+    auto_execute: bool = False,
+):
     """Generate the MCP config."""
 
     env = {}
     if not is_installed:
         # If not installed in site-packages, we likely need PYTHONPATH
         env["PYTHONPATH"] = str(project_root)
+
+    if llm_command_json:
+        env["HEGELION_LLM_COMMAND_JSON"] = llm_command_json
+    elif llm_command:
+        env["HEGELION_LLM_COMMAND"] = llm_command
+
+    if auto_execute:
+        env["HEGELION_MCP_AUTO_EXECUTE"] = "1"
 
     config = {
         "mcpServers": {
@@ -131,12 +151,25 @@ def generate_config(python_path, project_root, is_installed):
     return config
 
 
-def print_setup_instructions(dry_run=False):
+def print_setup_instructions(
+    dry_run: bool = False,
+    *,
+    llm_command: str | None = None,
+    llm_command_json: str | None = None,
+    auto_execute: bool = False,
+):
     python_path = get_python_path()
     is_installed = is_installed_in_site_packages()
     project_root = get_project_root()
 
-    config = generate_config(python_path, project_root, is_installed)
+    config = generate_config(
+        python_path,
+        project_root,
+        is_installed,
+        llm_command=llm_command,
+        llm_command_json=llm_command_json,
+        auto_execute=auto_execute,
+    )
 
     snippet = config["mcpServers"]
     json_output = json.dumps(snippet, indent=2)
@@ -210,15 +243,37 @@ def main(argv=None):  # pragma: no cover - lightweight CLI
         const="mcp_config.json",
         help="Write to path (default: mcp_config.json in CWD)",
     )
+    parser.add_argument(
+        "--llm-command",
+        help="Set HEGELION_LLM_COMMAND for the MCP server (used when execute=true)",
+    )
+    parser.add_argument(
+        "--llm-command-json",
+        help="Set HEGELION_LLM_COMMAND_JSON for the MCP server (preferred; used when execute=true)",
+    )
+    parser.add_argument(
+        "--auto-execute",
+        action="store_true",
+        help="Set HEGELION_MCP_AUTO_EXECUTE=1 so dialectical_single_shot executes by default",
+    )
     args = parser.parse_args(argv)
 
     if args.host and args.write:
         parser.error("Use either --host or --write, not both.")
+    if args.llm_command and args.llm_command_json:
+        parser.error("Use either --llm-command or --llm-command-json, not both.")
 
     python_path = get_python_path()
     is_installed = is_installed_in_site_packages()
     project_root = get_project_root()
-    config = generate_config(python_path, project_root, is_installed)
+    config = generate_config(
+        python_path,
+        project_root,
+        is_installed,
+        llm_command=args.llm_command,
+        llm_command_json=args.llm_command_json,
+        auto_execute=args.auto_execute,
+    )
     snippet = config["mcpServers"]
 
     if args.host:
@@ -230,7 +285,11 @@ def main(argv=None):  # pragma: no cover - lightweight CLI
     elif args.write:
         _write_config(Path(args.write), snippet)
     else:
-        print_setup_instructions()
+        print_setup_instructions(
+            llm_command=args.llm_command,
+            llm_command_json=args.llm_command_json,
+            auto_execute=args.auto_execute,
+        )
 
 
 if __name__ == "__main__":

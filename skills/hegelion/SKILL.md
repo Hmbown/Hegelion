@@ -12,6 +12,8 @@ description: Dialectical reasoning and autocoding via Hegelion MCP tools.
 | Analysis/decision | `mcp__hegelion__dialectical_single_shot(query, response_style="synthesis_only")` |
 | Implementation | `mcp__hegelion__hegelion(requirements, mode="workflow")` |
 
+Tip: If CLI execution is configured, set `execute=true` on `dialectical_single_shot` to return the final answer in one call.
+
 ## Autocoding Loop
 
 ```
