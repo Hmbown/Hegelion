@@ -280,6 +280,24 @@ Issues and PRs welcome. For significant changes, open a discussion first.
 
 ## Recent Changes
 
+### v0.5.0 (February 2026)
+
+- **Python 3.13 support**: Added to CI and classifiers
+- **Public API exports**: `hegelion` now exports key classes directly (`DialecticalPrompt`, `PromptDrivenDialectic`, `AutocodingState`, etc.)
+- **PEP 561 `py.typed` marker**: Enables type-checker support for library consumers
+- **`--version` flag**: Both `hegelion-server` and `hegelion-setup-mcp` now support `--version`
+- **Updated model references**: `.env.example` modernized (Claude Sonnet 4.6, GPT-5.2, Gemini 3 Pro)
+- **CHANGELOG fix**: Corrected malformed duplicate section headers
+
+### v0.4.6 (February 4, 2026)
+
+- **CI fix**: Fixed CI pipeline and automated release workflow
+
+### v0.4.5 (February 4, 2026)
+
+- **Single-call CLI execution** for `dialectical_single_shot`: `execute`, `timeout_seconds`, `max_retries`
+- **`hegelion-setup-mcp` flags**: `--llm-command-json`, `--llm-command`, `--auto-execute`
+
 ### v0.4.4 (January 21, 2026)
 
 - **Simplified skill/command**: Condensed to minimal routing tables, MCP-first approach
@@ -288,32 +306,6 @@ Issues and PRs welcome. For significant changes, open a discussion first.
 
 - **MCP refactor**: Split tooling, handlers, and validation to make the server easier to extend and maintain
 - **Codex skill**: Added `skills/hegelion/SKILL.md` for the `/hegelion` workflow
-
-### v0.4.2 (January 2026)
-
-- **Unified `/hegelion` command**: Single entry point for dialectical and autocoding workflows
-- **Host shortcuts**: `hegelion-setup-mcp --host claude-desktop|cursor|vscode|windsurf`
-- **Code quality**: Formatted with black, ruff checks passing
-
-### v0.4.1 (December 2025)
-
-- **Schema versioning**: All structured outputs include `schema_version` for client stability
-- **Phase clarity**: `player_prompt` and `coach_prompt` now include `current_phase` and `next_phase` fields
-- **Improved error handling**: Invalid phase transitions return clear errors with `expected`, `received`, and `hint` fields
-- **State validation**: Malformed state inputs return structured error responses instead of exceptions
-
-### v0.4.0 (December 2025)
-
-- **Autocoding system**: Player-coach dialectical loop based on Block AI's g3 agent
-- MCP tools: `autocoding_init`, `player_prompt`, `coach_prompt`, `autocoding_advance`
-- Session persistence with `autocoding_save` / `autocoding_load`
-- Single-shot mode for simpler use cases
-
-### v0.3.x
-
-- CLI streaming with `--stream` flag
-- MCP progress notifications
-- 470+ tests passing
 
 ---
 

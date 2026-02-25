@@ -234,6 +234,11 @@ def main(argv=None):  # pragma: no cover - lightweight CLI
         description="Generate MCP config for Hegelion", epilog=USAGE_NOTE
     )
     parser.add_argument(
+        "--version",
+        action="version",
+        version=f"hegelion {hegelion.__version__}",
+    )
+    parser.add_argument(
         "--host",
         help=f"Write to a host's default config path ({', '.join(KNOWN_HOSTS)})",
     )

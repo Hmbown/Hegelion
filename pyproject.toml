@@ -1,6 +1,6 @@
 [project]
 name = "hegelion"
-version = "0.4.6"
+version = "0.5.0"
 description = "Prompt-driven dialectical reasoning and autocoding for LLMs (thesis -> antithesis -> synthesis)"
 requires-python = ">=3.10"
 readme = "README.md"
@@ -36,6 +36,7 @@ classifiers = [
     "Programming Language :: Python :: 3.10",
     "Programming Language :: Python :: 3.11",
     "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
     "Topic :: Scientific/Engineering :: Artificial Intelligence",
     "Topic :: Software Development :: Libraries :: Python Modules"
 ]
@@ -82,6 +83,9 @@ packages = [
     "hegelion.scripts",
     
 ]
+
+[tool.setuptools.package-data]
+hegelion = ["py.typed"]
 
 [tool.pytest.ini_options]
 pythonpath = ["."]
