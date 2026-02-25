@@ -9,7 +9,7 @@
 - **`--version` flag**: Both `hegelion-server` and `hegelion-setup-mcp` CLIs now support `--version`
 
 ### Changed
-- **Updated model references**: `.env.example` now references current models (Claude Sonnet 4, GPT-4o, Gemini 2.0 Flash)
+- **Updated model references**: `.env.example` now references current models (Claude Sonnet 4.6, GPT-5.2, Gemini 3 Pro)
 
 ### Fixed
 - **CHANGELOG formatting**: Corrected malformed duplicate 0.3.0 / 0.2.3 section header

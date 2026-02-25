@@ -286,7 +286,7 @@ Issues and PRs welcome. For significant changes, open a discussion first.
 - **Public API exports**: `hegelion` now exports key classes directly (`DialecticalPrompt`, `PromptDrivenDialectic`, `AutocodingState`, etc.)
 - **PEP 561 `py.typed` marker**: Enables type-checker support for library consumers
 - **`--version` flag**: Both `hegelion-server` and `hegelion-setup-mcp` now support `--version`
-- **Updated model references**: `.env.example` modernized (Claude Sonnet 4, GPT-4o, Gemini 2.0 Flash)
+- **Updated model references**: `.env.example` modernized (Claude Sonnet 4.6, GPT-5.2, Gemini 3 Pro)
 - **CHANGELOG fix**: Corrected malformed duplicate section headers
 
 ### v0.4.6 (February 4, 2026)
