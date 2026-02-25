@@ -1,5 +1,25 @@
 # Changelog
 
+## 0.5.0 – Maintenance Refresh (February 2026)
+
+### Added
+- **Python 3.13 support**: Added to CI test matrix and pyproject classifiers
+- **PEP 561 `py.typed` marker**: Enables type-checker support for library consumers
+- **Public API exports**: `hegelion.__init__` now exports key classes (`DialecticalPrompt`, `PromptDrivenDialectic`, `AutocodingPrompt`, `PromptDrivenAutocoding`, `AutocodingState`, and workflow helpers)
+- **`--version` flag**: Both `hegelion-server` and `hegelion-setup-mcp` CLIs now support `--version`
+
+### Changed
+- **Updated model references**: `.env.example` now references current models (Claude Sonnet 4, GPT-4o, Gemini 2.0 Flash)
+
+### Fixed
+- **CHANGELOG formatting**: Corrected malformed duplicate 0.3.0 / 0.2.3 section header
+- **README staleness**: "Recent Changes" section now includes v0.4.5 and v0.4.6
+
+## 0.4.6 – CI Fix & Automated Releases (February 4, 2026)
+
+### Fixed
+- Fixed CI pipeline and automated release workflow
+
 ## 0.4.5 – Optional CLI Execution for `dialectical_single_shot` (February 4, 2026)
 
 ### Added
@@ -79,7 +99,14 @@ The `run_dialectic` MCP tool required server-side API keys (e.g., `HEGELION_PROV
 - **Documentation:** Comprehensive rewrite of README and documentation to emphasize the dual-path usage (Prompt-Based vs. API-Based).
 
 ## 0.2.3 – MCP/assistant integration polish
-## 0.3.0 – Phase 2: Search-Grounded Dialectics with Council and Judge
+
+- Clarified canonical `HegelionResult` JSON schema in `README.md`, including backend and timing fields, and documented when `trace` and `metadata.debug` appear.
+- Expanded `docs/MCP.md` with friendly request/response examples for `run_dialectic` and `run_benchmark`, plus explicit assistant-integration guidance for parsing JSON and JSONL outputs.
+- Aligned README/MCP documentation with the actual `HegelionResult` schema used by the core engine, CLI, and MCP server to ensure AI assistants see a single, stable contract.
+
+---
+
+## 0.2.2+phase2 – Search-Grounded Dialectics with Council and Judge
 
 **🎉 MAJOR RELEASE: Advanced Dialectical Reasoning System**
 
@@ -189,10 +216,6 @@ result = await run_dialectic(
 ```
 
 This release transforms Hegelion from a basic dialectical reasoner into a sophisticated multi-agent reasoning system with real-world grounding and quality assurance.
-
-- Clarified canonical `HegelionResult` JSON schema in `README.md`, including backend and timing fields, and documented when `trace` and `metadata.debug` appear.
-- Expanded `docs/MCP.md` with friendly request/response examples for `run_dialectic` and `run_benchmark`, plus explicit assistant-integration guidance for parsing JSON and JSONL outputs.
-- Aligned README/MCP documentation with the actual `HegelionResult` schema used by the core engine, CLI, and MCP server to ensure AI assistants see a single, stable contract.
 
 ## 0.2.2 – MCP documentation and GLM backend verification
 

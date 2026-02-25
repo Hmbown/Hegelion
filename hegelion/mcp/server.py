@@ -11,6 +11,8 @@ import argparse
 from typing import Any, Dict
 
 import anyio
+
+import hegelion
 from mcp.server import Server
 from mcp.server.stdio import stdio_server
 from mcp.types import CallToolResult, TextContent, Tool
@@ -122,6 +124,11 @@ def main() -> None:
     parser = argparse.ArgumentParser(
         description="Hegelion Prompt-Driven MCP Server - Works with any LLM",
         add_help=True,
+    )
+    parser.add_argument(
+        "--version",
+        action="version",
+        version=f"hegelion {hegelion.__version__}",
     )
     parser.add_argument(
         "--self-test",
