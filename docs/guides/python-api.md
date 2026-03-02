@@ -62,8 +62,6 @@ Supported `response_style` values:
 - `sections` (default)
 - `json`
 - `synthesis_only`
-- `conversational`
-- `bullet_points`
 
 When you use `json`, the prompt includes explicit JSON shape instructions.
 
@@ -80,7 +78,6 @@ requirements = """## Requirements\n- [ ] Add auth endpoint\n- [ ] Add tests\n"""
 state = AutocodingState.create(
     requirements=requirements,
     max_turns=5,
-    approval_threshold=0.9,
     session_name="auth-feature",
 )
 
@@ -163,7 +160,6 @@ from hegelion.core.prompt_autocoding import create_autocoding_workflow
 workflow = create_dialectical_workflow(
     query="Should we regulate frontier models?",
     use_council=True,
-    use_judge=True,
     response_style="json",
 )
 
