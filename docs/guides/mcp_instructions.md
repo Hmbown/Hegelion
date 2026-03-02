@@ -17,17 +17,19 @@ Use Hegelion tools when the user asks:
 
 ## Available Tools
 
-| Tool | Best For |
+All dialectical reasoning uses the unified `dialectic` tool with a `mode` parameter:
+
+| Mode | Best For |
 |------|----------|
-| `dialectical_single_shot` | Quick analysis - returns one prompt you execute |
-| `dialectical_workflow` | Step-by-step - returns thesis/antithesis/synthesis prompts |
-| `thesis_prompt` | Manual control - get just the thesis prompt |
-| `antithesis_prompt` | Manual control - critique a thesis |
-| `synthesis_prompt` | Manual control - synthesize thesis + antithesis |
+| `single_shot` | Quick analysis — returns one prompt you execute |
+| `workflow` | Step-by-step — returns thesis/antithesis/synthesis prompts |
+| `thesis` | Manual control — get just the thesis prompt |
+| `antithesis` | Manual control — critique a thesis |
+| `synthesis` | Manual control — synthesize thesis + antithesis |
 
-## Recommended: `dialectical_single_shot`
+## Recommended: `dialectic` (mode=single_shot)
 
-For most cases, use `dialectical_single_shot`. It returns a single comprehensive prompt that guides you through the entire dialectical process.
+For most cases, use `dialectic` with `mode="single_shot"`. It returns a single comprehensive prompt that guides you through the entire dialectical process.
 
 **Call the tool:**
 ```json
@@ -46,7 +48,7 @@ For most cases, use `dialectical_single_shot`. It returns a single comprehensive
 
 ### Single-call CLI execution (optional)
 
-If your MCP host does not reliably execute returned prompts (or you want `dialectical_single_shot` to return the final analysis directly), you can run the prompt through a configured LLM CLI.
+If your MCP host does not reliably execute returned prompts (or you want `dialectic` mode=single_shot to return the final analysis directly), you can run the prompt through a configured LLM CLI.
 
 **1) Configure the MCP server env:**
 
@@ -76,13 +78,14 @@ Notes:
 - `use_search: true` only adds instructions; your CLI must support tool use for real grounding.
 - The CLI runs locally. Prefer a text-only runner (or a locked-down sandbox) to avoid unintended file access.
 
-## Alternative: `dialectical_workflow`
+## Alternative: `dialectic` (mode=workflow)
 
-For more control, use `dialectical_workflow`. It returns a sequence of prompts you execute in order:
+For more control, use `dialectic` with `mode="workflow"`. It returns a sequence of prompts you execute in order:
 
 ```json
 {
   "query": "Is open source software sustainable?",
+  "mode": "workflow",
   "format": "workflow",
   "response_style": "json"
 }
@@ -107,16 +110,14 @@ If relevant, include:
 
 ## Advanced Options
 
-Both tools support optional enhancements:
+The `dialectic` tool supports optional enhancements:
 
-- `use_search: true` - Adds instructions to use search tools for real-world grounding
-- `use_council: true` - Enables multi-perspective critique (Logician, Empiricist, Ethicist)
-- `use_judge: true` - Adds a quality evaluation step (workflow only)
+- `use_search: true` — Adds instructions to use search tools for real-world grounding
+- `use_council: true` — Enables multi-perspective critique (Logician, Empiricist, Ethicist)
 
 ## Autocoding Tools (Implementation Loops)
 
 Use these when you want a player/coach loop for coding tasks:
-- `hegelion` as a branded entrypoint (`mode`: `init`, `workflow`, `single_shot`)
-- `autocoding_init` → `player_prompt` → `coach_prompt` → `autocoding_advance`
-- `autocoding_workflow` for a structured step-by-step recipe
-- `autocoding_single_shot` for a single prompt that alternates roles internally
+- `autocode` — Entry point (`mode`: `init`, `workflow`, `single_shot`)
+- `autocode_turn` — Execute one step (`role`: `player`, `coach`, `advance`)
+- `autocode_session` — Save/load session state (`action`: `save`, `load`)
