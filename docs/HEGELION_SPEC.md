@@ -4,7 +4,7 @@ This document describes Hegelion's prompt-driven schemas and MCP tool outputs.
 
 ## Schema Versioning
 
-All structured outputs include `schema_version` (currently `1`). Additive fields may appear in minor releases. Breaking changes will bump `schema_version`.
+All structured outputs include `schema_version` (currently `2`). Additive fields may appear in minor releases. Breaking changes will bump `schema_version`.
 
 ## Dialectical Reasoning Schemas
 
@@ -21,13 +21,13 @@ Shared structure for thesis/antithesis/synthesis prompts:
 }
 ```
 
-### `dialectical_single_shot`
+### `dialectic` (mode=single_shot)
 
 Structured content:
 
 ```json
 {
-  "schema_version": 1,
+  "schema_version": 2,
   "query": "...",
   "use_search": false,
   "use_council": false,
@@ -61,13 +61,13 @@ In this mode, `content[0].text` is the model output (not the prompt), and struct
 }
 ```
 
-### `dialectical_workflow`
+### `dialectic` (mode=workflow)
 
 Workflow response when `format="workflow"`:
 
 ```json
 {
-  "schema_version": 1,
+  "schema_version": 2,
   "query": "...",
   "workflow_type": "prompt_driven_dialectic",
   "steps": [
@@ -89,17 +89,19 @@ Workflow response when `format="workflow"`:
 }
 ```
 
-When `format="single_prompt"`, the tool returns the same fields as `dialectical_single_shot` with `format: "single_prompt"`.
+When `format="single_prompt"`, the tool returns the same fields as `dialectic` mode=single_shot with `format: "single_prompt"`.
+
+### `dialectic` (mode=thesis/antithesis/synthesis)
+
+Individual phase prompts for step-by-step dialectic. Returns a `DialecticalPrompt` with `schema_version`, `phase`, `prompt`, `instructions`, `expected_format`, and `response_style`.
 
 ### Response Styles
 
 Supported `response_style` values:
 
-- `sections`
-- `json`
-- `synthesis_only`
-- `conversational`
-- `bullet_points`
+- `sections` — Full structured output with labeled sections
+- `json` — Machine-readable JSON (includes `response_schema`)
+- `synthesis_only` — Only the synthesis/resolution
 
 When `response_style="json"`, tools include `response_schema` to define the expected JSON shape.
 
@@ -111,31 +113,25 @@ State passed between autocoding tools:
 
 ```json
 {
-  "schema_version": 1,
+  "schema_version": 2,
   "session_id": "uuid",
   "session_name": "optional label",
   "requirements": "...",
   "current_turn": 0,
   "max_turns": 10,
   "phase": "player",
-  "status": "active",
   "turn_history": [
     {
       "turn": 0,
       "feedback": "...",
-      "approved": false,
-      "score": 0.7
+      "approved": false
     }
   ],
-  "last_coach_feedback": "...",
-  "quality_scores": [0.7],
-  "approval_threshold": 0.9
+  "last_coach_feedback": "..."
 }
 ```
 
-Valid `phase` values: `init`, `player`, `coach`, `approved`, `timeout`.
-
-Valid `status` values: `active`, `approved`, `rejected`, `timeout`.
+Valid `phase` values: `player`, `coach`, `approved`, `timeout`.
 
 ### AutocodingPrompt
 
@@ -149,16 +145,21 @@ Valid `status` values: `active`, `approved`, `rejected`, `timeout`.
 }
 ```
 
-### Autocoding Tools
+### Autocoding Tools (v0.5.0 Unified)
 
-- `hegelion` is a branded entrypoint for autocoding. Use `mode: init | workflow | single_shot`.
-  Responses include `entrypoint: "hegelion"` and the chosen `mode`.
-- `autocoding_init` returns `AutocodingState`.
-- `player_prompt` returns an `AutocodingPrompt` plus `current_phase`, `next_phase`, and an updated `state` advanced to `coach`.
-- `coach_prompt` returns an `AutocodingPrompt` plus `current_phase`, `next_phase`, and a `state` still in `coach` (for `autocoding_advance`).
-- `autocoding_advance` returns the next `AutocodingState`.
-- `autocoding_single_shot` returns an `AutocodingPrompt`.
-- `autocoding_save` and `autocoding_load` persist and restore `AutocodingState`.
+Four unified tools replace the previous 14-tool API:
+
+- **`autocode`** — Entry point for autocoding sessions.
+  - `mode=init`: Create a new session, returns `AutocodingState`.
+  - `mode=workflow`: Generate a structured step-by-step recipe as JSON.
+  - `mode=single_shot`: Generate a single combined player+coach prompt.
+- **`autocode_turn`** — Execute one step in the autocoding loop.
+  - `role=player`: Generate implementation prompt, advances state to `coach` phase.
+  - `role=coach`: Generate verification prompt for current turn.
+  - `role=advance`: Advance state after coach review (requires `coach_feedback` and `approved`).
+- **`autocode_session`** — Persist or restore session state.
+  - `action=save`: Save `AutocodingState` to a JSON file.
+  - `action=load`: Restore `AutocodingState` from a JSON file.
 
 ## Error Responses
 
@@ -166,12 +167,12 @@ When a tool fails validation, the MCP response includes structured error metadat
 
 ```json
 {
-  "schema_version": 1,
-  "tool": "player_prompt",
+  "schema_version": 2,
+  "tool": "autocode_turn",
   "error": "Invalid phase: coach",
   "expected": "player",
   "received": "coach",
-  "hint": "If you just called autocoding_init or autocoding_advance, pass that returned state into player_prompt."
+  "hint": "If you just called autocode (mode=init) or autocode_turn (role=advance), pass that returned state into autocode_turn role=player."
 }
 ```
 
