@@ -290,6 +290,8 @@ Issues and PRs welcome. For significant changes, open a discussion first.
 - **Updated model references**: `.env.example` modernized (Claude Sonnet 4.6, GPT-5.2, Gemini 3 Pro)
 - **CHANGELOG fix**: Corrected malformed duplicate section headers
 
+> **Note:** v0.4.x entries below reference pre-v0.5 tool names (e.g. `dialectical_single_shot`). These were replaced by the unified `dialectic` tool in v0.5.0.
+
 ### v0.4.6 (February 4, 2026)
 
 - **CI fix**: Fixed CI pipeline and automated release workflow
