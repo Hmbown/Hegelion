@@ -38,6 +38,7 @@ from hegelion.mcp.validation import (
 
 
 def _prompt_structured(prompt_obj: Any, response_style: str) -> dict[str, Any]:
+    """Build structured metadata dict from a DialecticalPrompt for MCP transport."""
     structured = {
         "schema_version": MCP_SCHEMA_VERSION,
         "phase": prompt_obj.phase,
@@ -53,6 +54,7 @@ def _prompt_structured(prompt_obj: Any, response_style: str) -> dict[str, Any]:
 
 
 def _render_prompt_response(title: str, prompt_obj: Any) -> str:
+    """Render a DialecticalPrompt as a human-readable markdown string."""
     return f"""# {title}
 
 {prompt_obj.prompt}
@@ -83,6 +85,7 @@ async def handle_dialectic(app: Server, *, query: str, mode: str, _arguments: di
 
 
 async def _handle_workflow(app: Server, name: str, query: str, arguments: dict[str, Any]):
+    """Generate a multi-step dialectical workflow or single combined prompt."""
     use_search = get_optional_bool(name, arguments, "use_search", False)
     if isinstance(use_search, CallToolResult):
         return use_search
@@ -152,6 +155,7 @@ async def _handle_workflow(app: Server, name: str, query: str, arguments: dict[s
 
 
 async def _handle_single_shot(app: Server, name: str, query: str, arguments: dict[str, Any]):
+    """Generate a single-shot dialectic prompt, optionally executing via CLI."""
     use_search = get_optional_bool(name, arguments, "use_search", False)
     if isinstance(use_search, CallToolResult):
         return use_search
@@ -292,6 +296,7 @@ async def _handle_single_shot(app: Server, name: str, query: str, arguments: dic
 
 
 async def _handle_thesis(app: Server, name: str, query: str, arguments: dict[str, Any]):
+    """Generate a thesis-only prompt for step-by-step dialectic."""
     await send_progress(app, "━━━ THESIS ━━━ Generating prompt...", 1.0, 1.0)
     response_style = get_enum_arg(name, arguments, "response_style", RESPONSE_STYLES, "sections")
     if isinstance(response_style, CallToolResult):
@@ -307,6 +312,7 @@ async def _handle_thesis(app: Server, name: str, query: str, arguments: dict[str
 
 
 async def _handle_antithesis(app: Server, name: str, query: str, arguments: dict[str, Any]):
+    """Generate an antithesis prompt, optionally with council perspectives."""
     await send_progress(app, "━━━ ANTITHESIS ━━━ Generating prompt...", 1.0, 1.0)
     thesis = require_str_arg(name, arguments, "thesis")
     if isinstance(thesis, CallToolResult):
@@ -355,6 +361,7 @@ async def _handle_antithesis(app: Server, name: str, query: str, arguments: dict
 
 
 async def _handle_synthesis(app: Server, name: str, query: str, arguments: dict[str, Any]):
+    """Generate a synthesis prompt that resolves thesis and antithesis."""
     await send_progress(app, "━━━ SYNTHESIS ━━━ Generating prompt...", 1.0, 1.0)
     thesis = require_str_arg(name, arguments, "thesis")
     if isinstance(thesis, CallToolResult):
