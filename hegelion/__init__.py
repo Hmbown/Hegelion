@@ -8,6 +8,7 @@ using Large Language Models, making reasoning patterns and contradictions explic
 __version__ = "0.5.0"
 __author__ = "Hegelion Contributors"
 
+from hegelion.core.constants import AutocodingPhase, DialecticPhase
 from hegelion.core.prompt_dialectic import (
     DialecticalPrompt,
     PromptDrivenDialectic,
@@ -23,6 +24,9 @@ from hegelion.core.autocoding_state import AutocodingState
 
 __all__ = [
     "__version__",
+    # Enums
+    "AutocodingPhase",
+    "DialecticPhase",
     # Dialectical reasoning
     "DialecticalPrompt",
     "PromptDrivenDialectic",
