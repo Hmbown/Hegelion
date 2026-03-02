@@ -65,11 +65,11 @@ The server returns structured prompts for the MCP client (Claude Desktop, Cursor
 - **`hegelion/mcp/`** — MCP server layer
   - `server.py` — Entry point (`main()`), tool dispatcher
   - `tooling.py` — `build_tools()` returns MCP Tool definitions with schemas
-  - `constants.py` — `ToolName` enum (14 tools), `MCP_SCHEMA_VERSION`
+  - `constants.py` — `ToolName` enum (4 tools), `MCP_SCHEMA_VERSION`
   - `validation.py` — Input validation
   - `response.py` — Response formatting
   - `handlers/dialectic.py` — Dialectic tool handlers
-  - `handlers/autocoding.py` — Autocoding tool handlers + `hegelion` entrypoint
+  - `handlers/autocoding.py` — Autocoding tool handlers
 
 - **`hegelion/langgraph/`** — Optional LangGraph integration for durable agent loops
 - **`hegelion/scripts/mcp_setup.py`** — Cross-platform MCP config generator for various hosts
