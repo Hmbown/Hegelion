@@ -78,7 +78,7 @@ The server returns structured prompts for the MCP client (Claude Desktop, Cursor
 `AutocodingState` is a stateless dataclass passed explicitly between MCP tool calls. Each turn gets fresh context to prevent context pollution. State includes `schema_version` for client stability.
 
 ### Response Styles
-Five output formats: `sections`, `json`, `synthesis_only`, `conversational`, `bullet_points` — configurable per tool call via `response_style` parameter.
+Three output formats: `sections`, `json`, `synthesis_only` — configurable per tool call via `response_style` parameter.
 
 ### Environment Variables
 - `HEGELION_LLM_COMMAND_JSON` / `HEGELION_LLM_COMMAND` — CLI command for optional server-side LLM execution
