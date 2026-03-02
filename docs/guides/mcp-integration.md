@@ -229,52 +229,47 @@ gemini extensions install https://github.com/Hmbown/Hegelion --branch main --pat
 
 ## Available Tools
 
-### `dialectical_single_shot`
-Primary tool. Returns one prompt that guides the LLM through Thesis → Antithesis → Synthesis.
+### `dialectic`
+
+Unified dialectical reasoning tool. Use `mode` to select the operation:
+
+**mode=single_shot** (default) — Returns one prompt that guides the LLM through Thesis → Antithesis → Synthesis.
 
 ```
-Use Hegelion's dialectical_single_shot to analyze: "Can AI be creative?"
+Use Hegelion's dialectic with mode=single_shot to analyze: "Can AI be creative?"
 ```
 
 Optional: single-call CLI execution (no server-side API keys). Configure the server with `HEGELION_LLM_COMMAND_JSON`
 and call with `execute: true` to return the final analysis directly.
 
-### `dialectical_workflow`
-Returns a structured workflow for step-by-step execution. Use for complex queries.
+**mode=workflow** — Returns a structured workflow for step-by-step execution. Use for complex queries.
 
 ```
-Generate a Hegelion workflow for: "Should we regulate AI?" with use_council=true
+Use Hegelion's dialectic with mode=workflow for: "Should we regulate AI?" with use_council=true
 ```
 
-### Individual Phase Prompts
-- `thesis_prompt` — Generate thesis only
-- `antithesis_prompt` — Generate antithesis only (requires thesis)
-- `synthesis_prompt` — Generate synthesis (requires both)
+**mode=thesis / antithesis / synthesis** — Individual phase prompts for manual control.
 
-### Autocoding Tools (v0.4.0+)
+### Autocoding Tools (v0.5.0+)
 
-Player-coach loop for verified code implementations:
+Four unified tools for the player-coach loop:
 
 | Tool | Purpose |
 |------|---------|
-| `hegelion` | Brand-first entrypoint (`mode`: `init`, `workflow`, `single_shot`) |
-| `autocoding_init` | Start session with requirements checklist |
-| `player_prompt` | Generate implementation prompt |
-| `coach_prompt` | Generate verification prompt |
-| `autocoding_advance` | Update state after coach review |
-| `autocoding_single_shot` | Combined prompt for simpler tasks |
-| `autocoding_save` | Save session to file |
-| `autocoding_load` | Resume saved session |
+| `autocode` | Entry point (`mode`: `init`, `workflow`, `single_shot`) |
+| `autocode_turn` | Execute one step (`role`: `player`, `coach`, `advance`) |
+| `autocode_session` | Save/load session state (`action`: `save`, `load`) |
 
 **State passing + schema:**
 - Tool outputs include `schema_version` for client-side stability.
-- `autocoding_init` returns an `AutocodingState` with `phase: "player"`.
-- `player_prompt` returns the player prompt plus a `state` already advanced to `phase: "coach"` for the next call; it also includes `current_phase` and `next_phase` to remove ambiguity.
-- `coach_prompt` requires `state.phase: "coach"` and returns the coach prompt with the same `state` (still `phase: "coach"`) for `autocoding_advance`.
+- `autocode` (mode=init) returns an `AutocodingState` with `phase: "player"`.
+- `autocode_turn` (role=player) returns the player prompt plus a `state` already advanced to `phase: "coach"` for the next call.
+- `autocode_turn` (role=coach) returns the coach prompt with the same `state` (still `phase: "coach"`) for the advance step.
+- `autocode_turn` (role=advance) advances state after coach review (requires `coach_feedback` and `approved`).
 
 **Example:**
 ```
-Use autocoding_init with these requirements:
+Use autocode with mode=init and these requirements:
 - Add user authentication to src/api.py
 - Add tests in tests/test_auth.py
 - All tests must pass
@@ -285,13 +280,12 @@ Use autocoding_init with these requirements:
 | Option | Default | Description |
 |--------|---------|-------------|
 | `use_council` | `false` | Activates three critics: Logician, Empiricist, Ethicist |
-| `use_judge` | `false` | Adds quality evaluation step |
 | `use_search` | `false` | Prompts include search grounding instructions |
 | `response_style` | `sections` | Output format: `json`, `sections`, or `synthesis_only` |
 
 **Example with options:**
 ```
-Run dialectical_single_shot on "Is consciousness fundamental?" with use_council=true
+Run dialectic mode=single_shot on "Is consciousness fundamental?" with use_council=true
 ```
 
 ## Troubleshooting
@@ -393,8 +387,8 @@ After setup, ask in your editor:
 > "What Hegelion tools are available?"
 
 You should see:
-- **Dialectical:** `dialectical_workflow`, `dialectical_single_shot`, `thesis_prompt`, `antithesis_prompt`, `synthesis_prompt`
-- **Autocoding:** `hegelion`, `autocoding_init`, `player_prompt`, `coach_prompt`, `autocoding_advance`, `autocoding_single_shot`, `autocoding_save`, `autocoding_load`
+- **Dialectical:** `dialectic`
+- **Autocoding:** `autocode`, `autocode_turn`, `autocode_session`
 
 ## Getting Help
 
