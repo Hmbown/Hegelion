@@ -39,7 +39,7 @@ thesis_prompt = dialectic.generate_thesis_prompt(
 antithesis_prompt = dialectic.generate_antithesis_prompt(
     "Is AI conscious?",
     thesis_output,
-    use_search=False,
+    use_search_context=False,
     response_style="sections",
 )
 
