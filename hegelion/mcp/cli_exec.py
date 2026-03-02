@@ -99,11 +99,4 @@ def validate_llm_output(output: str, response_style: str) -> tuple[bool, str | N
             return False, f"Missing section headings: {missing}"
         return True, None
 
-    if response_style == "bullet_points":
-        required_markers = ("**Thesis**", "**Antithesis**", "**Synthesis**")
-        missing = [m for m in required_markers if m not in text]
-        if missing:
-            return False, f"Missing bullet labels: {missing}"
-        return True, None
-
     return True, None

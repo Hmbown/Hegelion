@@ -19,20 +19,10 @@ from mcp.types import CallToolResult, TextContent, Tool
 
 from hegelion.mcp.constants import MCP_SCHEMA_VERSION, ToolName
 from hegelion.mcp.handlers import (
-    handle_antithesis_prompt,
-    handle_autocoding_advance,
-    handle_autocoding_init,
-    handle_autocoding_load,
-    handle_autocoding_save,
-    handle_autocoding_single_shot,
-    handle_autocoding_workflow,
-    handle_coach_prompt,
-    handle_dialectical_single_shot,
-    handle_dialectical_workflow,
-    handle_hegelion_entrypoint,
-    handle_player_prompt,
-    handle_synthesis_prompt,
-    handle_thesis_prompt,
+    handle_autocode,
+    handle_autocode_session,
+    handle_autocode_turn,
+    handle_dialectic,
 )
 from hegelion.mcp.tooling import build_tools
 
@@ -64,34 +54,14 @@ async def list_tools() -> list[Tool]:
 async def call_tool(name: str, arguments: Dict[str, Any]):
     """Execute dialectical reasoning tools."""
 
-    if name == ToolName.DIALECTICAL_WORKFLOW.value:
-        return await handle_dialectical_workflow(app, arguments)
-    if name == ToolName.DIALECTICAL_SINGLE_SHOT.value:
-        return await handle_dialectical_single_shot(app, arguments)
-    if name == ToolName.THESIS_PROMPT.value:
-        return await handle_thesis_prompt(app, arguments)
-    if name == ToolName.ANTITHESIS_PROMPT.value:
-        return await handle_antithesis_prompt(app, arguments)
-    if name == ToolName.SYNTHESIS_PROMPT.value:
-        return await handle_synthesis_prompt(app, arguments)
-    if name == ToolName.HEGELION.value:
-        return await handle_hegelion_entrypoint(app, arguments)
-    if name == ToolName.AUTOCODING_INIT.value:
-        return await handle_autocoding_init(app, arguments)
-    if name == ToolName.AUTOCODING_WORKFLOW.value:
-        return await handle_autocoding_workflow(app, arguments)
-    if name == ToolName.PLAYER_PROMPT.value:
-        return await handle_player_prompt(app, arguments)
-    if name == ToolName.COACH_PROMPT.value:
-        return await handle_coach_prompt(app, arguments)
-    if name == ToolName.AUTOCODING_ADVANCE.value:
-        return await handle_autocoding_advance(app, arguments)
-    if name == ToolName.AUTOCODING_SINGLE_SHOT.value:
-        return await handle_autocoding_single_shot(app, arguments)
-    if name == ToolName.AUTOCODING_SAVE.value:
-        return await handle_autocoding_save(app, arguments)
-    if name == ToolName.AUTOCODING_LOAD.value:
-        return await handle_autocoding_load(app, arguments)
+    if name == ToolName.DIALECTIC.value:
+        return await handle_dialectic(app, arguments)
+    if name == ToolName.AUTOCODE.value:
+        return await handle_autocode(app, arguments)
+    if name == ToolName.AUTOCODE_TURN.value:
+        return await handle_autocode_turn(app, arguments)
+    if name == ToolName.AUTOCODE_SESSION.value:
+        return await handle_autocode_session(app, arguments)
 
     return CallToolResult(
         content=[TextContent(type="text", text=f"Unknown tool: {name}")],
@@ -113,8 +83,6 @@ async def run_server() -> None:
             read_stream,
             write_stream,
             init_options,
-            # Stateless keeps older MCP runtimes happy if they call tools/list immediately
-            # after initialization or skip explicit initialization notifications.
             stateless=True,
         )
 
@@ -152,9 +120,10 @@ async def _self_test() -> None:
     print("Tools:", ", ".join(tool_names))
 
     contents, structured = await call_tool(
-        name=ToolName.DIALECTICAL_SINGLE_SHOT.value,
+        name=ToolName.DIALECTIC.value,
         arguments={
             "query": "Self-test: Can AI be genuinely creative?",
+            "mode": "single_shot",
             "use_council": True,
             "response_style": "json",
         },

@@ -89,14 +89,6 @@ class TestPromptDrivenDialectic:
         assert "C1" in prompt.prompt
         assert "C2" in prompt.prompt
 
-    def test_generate_judge_prompt(self, dialectic):
-        """Test judge prompt generation."""
-        prompt = dialectic.generate_judge_prompt("Q", "T", "A", "S")
-
-        assert prompt.phase == "judge"
-        assert "Iron Judge" in prompt.prompt
-        assert "SCORE:" in prompt.prompt
-
 
 class TestWorkflowHelpers:
     """Test high-level workflow helpers."""
@@ -136,14 +128,6 @@ class TestWorkflowHelpers:
         assert "{{council_the_empiricist_from_step_3}}" in synthesis_prompt_text
         assert "### Council The Ethicist" in synthesis_prompt_text
         assert "{{council_the_ethicist_from_step_4}}" in synthesis_prompt_text
-
-    def test_create_dialectical_workflow_with_judge(self):
-        """Test workflow with judge."""
-        workflow = create_dialectical_workflow("test", use_judge=True)
-
-        step_names = [s["name"] for s in workflow["steps"]]
-        assert "Evaluate Quality" in step_names
-        assert len(workflow["steps"]) == 4  # T, A, S, J
 
     def test_single_shot_prompt(self):
         """Test single shot prompt generation."""

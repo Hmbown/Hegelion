@@ -97,6 +97,61 @@ player_prompt = autocoding.generate_player_prompt(
 # Then run the coach prompt and advance the state based on its feedback.
 ```
 
+## Continuous LangGraph Loop (Builder → Critic → Synthesis)
+
+If you want a durable, cyclic coding agent with policy gates and optional
+human approval, use `hegelion.langgraph`.
+
+Graph shape:
+`observe -> thesis -> critique -> antithesis -> synthesis -> (stop|continue)` with
+execute/verify steps on the continue path.
+
+```python
+from hegelion.langgraph import DialecticPolicy, DialecticRuntime, run_task
+
+runtime = DialecticRuntime(
+    builder=lambda state, prompt: {
+        "summary": "Implement requirement and run targeted tests",
+        "commands": ["uv run pytest -q tests/test_autocoding.py"],
+        "target_files": ["hegelion/core/autocoding_state.py"],
+    },
+    critic=lambda state, prompt, builder: {
+        "summary": "Check missing tests and risky assumptions",
+        "blocking_issues": [],
+    },
+    synthesizer=lambda state, builder, critic: {
+        "kind": "run_commands",
+        "commands": builder["commands"],
+        "target_files": builder["target_files"],
+        "risk_level": "low",
+        "rationale": "Synthesis accepts builder plan after critique.",
+    },
+    executor=lambda state, action: {"executed": True, "commands": action["commands"]},
+    verifier=lambda state, execution: {
+        "tests_run": action["commands"] if (action := execution) else [],
+        "results": {},
+        "failures": [],
+        "passed": True,
+        "score": 1.0,
+    },
+)
+
+result = run_task(
+    objective="Implement the requirement checklist",
+    requirements="- [ ] Add endpoint\n- [ ] Add tests\n",
+    policy=DialecticPolicy(max_turns=6, approval_threshold=0.9),
+    runtime=runtime,
+)
+
+print(result["status"])  # approved | timeout | failed
+```
+
+Installation for this feature set:
+
+```bash
+pip install "hegelion[langgraph]"
+```
+
 ## Workflows for Orchestration
 
 If you need a machine-readable recipe to drive an agent loop, use the workflow builders:

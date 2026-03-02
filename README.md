@@ -24,7 +24,7 @@ Both modes use the same principle: **force the model to oppose itself** before c
 
 ## Autocoding: Player-Coach Loop
 
-**New in v0.4.0** — Based on [Block AI's g3 agent research](https://block.xyz/documents/adversarial-cooperation-in-code-synthesis.pdf).
+**Updated in v0.5.0** — Based on [Block AI's g3 agent research](https://block.xyz/documents/adversarial-cooperation-in-code-synthesis.pdf).
 
 ### The Problem
 
@@ -71,43 +71,40 @@ The coach catches issues by re-reading requirements and actually running tests�
 
 In Claude Code, Cursor, or any MCP-enabled editor:
 
-Tip: if your editor exposes MCP tools as slash commands, use `/hegelion` (tool `hegelion`)
-as the branded autocoding entrypoint.
+Tip: if your editor exposes slash commands, you can use `/hegelion` as a wrapper.
+The underlying MCP tools are `autocode` and `autocode_turn`.
 
 ```
-You: Use autocoding_init with these requirements:
+You: Call autocode with mode=init and these requirements:
      - Add user authentication to src/api.py
      - Add tests in tests/test_auth.py
      - All tests must pass
 
 [Session initializes]
 
-You: Generate player_prompt and implement
+You: Call autocode_turn with role=player and implement
 
 [Player writes code and tests]
 
-You: Generate coach_prompt and verify
+You: Call autocode_turn with role=coach and verify
 
 [Coach: ✓ auth endpoint exists, ✗ missing password validation test]
 
-You: Call autocoding_advance and continue
+You: Call autocode_turn with role=advance, coach_feedback, approved=false
 
 [Loop until COACH APPROVED]
 ```
 
-**State passing note:** `player_prompt` returns a player prompt plus an updated `state` advanced to `phase: "coach"` for the next call. For clarity, prompt outputs include `current_phase` (prompt phase) and `next_phase` (returned state's phase). All structured outputs include `schema_version` for client stability.
+**State passing note:** `autocode_turn` with `role=player` returns a player prompt plus an updated `state` advanced to `phase: "coach"` for the next call. Prompt outputs include `current_phase` (prompt phase) and `next_phase` (returned state's phase). All structured outputs include `schema_version` for client stability.
 
 ### MCP Tools
 
 | Tool | Purpose |
 |------|---------|
-| `hegelion` | Brand-first autocoding entrypoint (`mode`: `init`, `workflow`, `single_shot`) |
-| `autocoding_init` | Start session with requirements checklist |
-| `player_prompt` | Generate implementation prompt |
-| `coach_prompt` | Generate verification prompt |
-| `autocoding_advance` | Update state after coach review |
-| `autocoding_single_shot` | Combined prompt for simpler tasks |
-| `autocoding_save` / `autocoding_load` | Persist and resume sessions |
+| `dialectic` | Unified dialectical reasoning (`mode`: `single_shot`, `workflow`, `thesis`, `antithesis`, `synthesis`) |
+| `autocode` | Unified autocoding entrypoint (`mode`: `init`, `workflow`, `single_shot`) |
+| `autocode_turn` | Execute one autocoding turn (`role`: `player`, `coach`, `advance`) |
+| `autocode_session` | Persist or restore sessions (`action`: `save`, `load`) |
 
 ### Codex Skill (optional)
 
@@ -199,7 +196,6 @@ hegelion-server --self-test
 | Option | Description |
 |--------|-------------|
 | `use_council` | Three critics: Logician, Empiricist, Ethicist |
-| `use_judge` | Final quality evaluation |
 | `use_search` | Grounds arguments with web search |
 | `response_style` | `sections`, `json`, or `synthesis_only` |
 
@@ -280,8 +276,13 @@ Issues and PRs welcome. For significant changes, open a discussion first.
 
 ## Recent Changes
 
-### v0.5.0 (February 2026)
+### v0.5.0 (March 2026)
 
+- **MCP tool consolidation**: 14 tools simplified to 4 unified tools: `dialectic`, `autocode`, `autocode_turn`, `autocode_session`
+- **State machine simplification**: `AutocodingStatus` removed; `phase` is now the only state indicator
+- **Schema migration**: `schema_version` bumped to `2` with backward-compatible v1-to-v2 loading
+- **Validation cleanup**: Added `@validated` decorator + typed specs to remove repetitive handler boilerplate
+- **Dead code removal**: Removed unused judge path, unused conversation state, and deprecated response styles
 - **Python 3.13 support**: Added to CI and classifiers
 - **Public API exports**: `hegelion` now exports key classes directly (`DialecticalPrompt`, `PromptDrivenDialectic`, `AutocodingState`, etc.)
 - **PEP 561 `py.typed` marker**: Enables type-checker support for library consumers

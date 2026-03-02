@@ -86,18 +86,6 @@ DIALECTIC_PHASE_SCHEMAS = {
             },
         },
     },
-    DialecticPhase.JUDGE.value: {
-        "type": "object",
-        "required": ["phase", "score", "critique_validity"],
-        "properties": {
-            "phase": {"type": "string"},
-            "score": {"type": "number"},
-            "critique_validity": {"type": "boolean"},
-            "reasoning": {"type": "string"},
-            "strengths": {"type": "string"},
-            "improvements": {"type": "string"},
-        },
-    },
 }
 
 
@@ -108,10 +96,6 @@ def response_style_summary(style: str) -> str:
             return "LLM should return a JSON object with thesis/antithesis/synthesis fields."
         case "synthesis_only":
             return "LLM should only return the synthesis (no thesis/antithesis sections)."
-        case "conversational":
-            return "LLM should return a natural, conversational response."
-        case "bullet_points":
-            return "LLM should return a concise bulleted list."
         case _:
             return "LLM should return full Thesis → Antithesis → Synthesis sections."
 

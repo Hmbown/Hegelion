@@ -301,27 +301,29 @@ def create_autocoding_workflow(
             {
                 "step": 1,
                 "name": "Initialize Session",
-                "action": "Call autocoding_init with requirements",
+                "action": "Call autocode with mode=init and requirements",
                 "returns": "AutocodingState",
             },
             {
                 "step": 2,
                 "name": "Player Turn",
-                "action": "Call player_prompt with state, execute returned prompt",
+                "action": "Call autocode_turn with role=player and state, then execute returned prompt",
                 "returns": "Implementation actions",
                 "repeat": True,
             },
             {
                 "step": 3,
                 "name": "Coach Turn",
-                "action": "Call coach_prompt with state, execute returned prompt",
+                "action": "Call autocode_turn with role=coach and state, then execute returned prompt",
                 "returns": "Compliance checklist and feedback",
                 "repeat": True,
             },
             {
                 "step": 4,
                 "name": "Advance State",
-                "action": "Call autocoding_advance with coach feedback and approval status",
+                "action": (
+                    "Call autocode_turn with role=advance, state, coach_feedback, and approved"
+                ),
                 "returns": "Updated AutocodingState",
                 "repeat": True,
             },

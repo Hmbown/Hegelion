@@ -67,8 +67,8 @@ class TestMCPLocal(unittest.TestCase):
             assert "result" in response, f"tools/list failed: {response}"
             tools = response["result"]["tools"]
             tool_names = [t["name"] for t in tools]
-            self.assertIn("thesis_prompt", tool_names)
-            self.assertIn("dialectical_workflow", tool_names)
+            self.assertIn("dialectic", tool_names)
+            self.assertIn("autocode", tool_names)
 
         finally:
             process.terminate()

@@ -60,16 +60,6 @@ def _json_output_instructions(phase: str) -> tuple[str, str]:
   ]
 }"""
         expected = "JSON object with phase, synthesis, research_proposals"
-    elif phase == DialecticPhase.JUDGE.value:
-        schema = """{
-  "phase": "judge",
-  "score": 0,
-  "critique_validity": true,
-  "reasoning": "...",
-  "strengths": "...",
-  "improvements": "..."
-}"""
-        expected = "JSON object with score, critique_validity, reasoning, strengths, improvements"
     else:
         return "", ""
 
@@ -82,9 +72,6 @@ No markdown, no commentary outside the JSON."""
 
 class PromptDrivenDialectic:
     """Orchestrates dialectical reasoning using prompts instead of API calls."""
-
-    def __init__(self):
-        self.conversation_state = {}
 
     def generate_thesis_prompt(
         self, query: str, response_style: str = "sections"
@@ -287,63 +274,11 @@ Generate your SYNTHESIS now.""",
             expected_format=expected_format,
         )
 
-    def generate_judge_prompt(
-        self,
-        query: str,
-        thesis: str,
-        antithesis: str,
-        synthesis: str,
-        response_style: str = "sections",
-    ) -> DialecticalPrompt:
-        """Generate a prompt for quality evaluation."""
-        output_instructions = ""
-        expected_format = "Structured response with SCORE:, CRITIQUE_VALIDITY:, REASONING:, STRENGTHS:, IMPROVEMENTS:"
-        if response_style == "json":
-            output_instructions, expected_format = _json_output_instructions("judge")
-            output_instructions = f"\n\n{output_instructions}"
-            format_instruction = ""
-        else:
-            format_instruction = """Respond with EXACTLY this format:
-SCORE: [integer 0-10]
-CRITIQUE_VALIDITY: [true/false]
-REASONING: [detailed explanation]
-STRENGTHS: [specific areas of excellence]
-IMPROVEMENTS: [specific areas needing work]"""
-
-        return DialecticalPrompt(
-            phase=DialecticPhase.JUDGE.value,
-            prompt=f"""You are the Iron Judge, evaluating dialectical reasoning quality.
-
-ORIGINAL QUERY: {query}
-THESIS: {thesis}
-ANTITHESIS: {antithesis} 
-SYNTHESIS: {synthesis}
-
-Evaluate this dialectical process on:
-
-1. **Thesis Quality** (0-2 points): Is the initial position well-reasoned?
-2. **Antithesis Rigor** (0-3 points): Does the critique identify genuine problems?
-3. **Synthesis Innovation** (0-3 points): Does the synthesis transcend both positions?
-4. **Critique Validity** (0-2 points): Were critiques actually addressed?
-
-Score criteria:
-- 0-3: Poor quality, major logical flaws
-- 4-5: Below average, some good elements but significant issues
-- 6-7: Good quality, solid reasoning with minor gaps  
-- 8-9: Excellent, sophisticated analysis with minimal flaws
-- 10: Outstanding, exemplary dialectical reasoning
-
-{format_instruction}{output_instructions}""",
-            instructions="Evaluate the dialectical quality and provide structured feedback",
-            expected_format=expected_format,
-        )
-
 
 def create_dialectical_workflow(
     query: str,
     use_search: bool = False,
     use_council: bool = False,
-    use_judge: bool = False,
     response_style: str = "sections",
 ) -> Dict[str, Any]:
     """Create a complete dialectical workflow as structured prompts.
@@ -415,22 +350,6 @@ def create_dialectical_workflow(
             ).to_dict(),
         }
     )
-
-    # Step 4: Judge (optional)
-    if use_judge:
-        workflow["steps"].append(
-            {
-                "step": antithesis_step + 1,
-                "name": "Evaluate Quality",
-                "prompt": dialectic.generate_judge_prompt(
-                    query,
-                    "{{thesis_from_step_1}}",
-                    antithesis_output_ref,
-                    f"{{synthesis_from_step_{antithesis_step}}}",
-                    response_style=response_style,
-                ).to_dict(),
-            }
-        )
 
     workflow["instructions"] = {
         "execution_mode": "sequential",
@@ -507,23 +426,6 @@ No markdown, no commentary outside the JSON."""
             "Perform the thesis and antithesis internally; only output the synthesis."
         )
         output_instructions = """Return ONLY the SYNTHESIS as 2-3 tight paragraphs. Do not include thesis, antithesis, headings, or lists."""
-    elif response_style == "conversational":
-        output_instructions = """Adopt a natural, conversational tone. Present the dialectical analysis as if you are a thoughtful colleague explaining your reasoning.
-        
-Structure:
-1. Start with your initial thoughts (Thesis)
-2. Then, "but on the other hand..." (Antithesis)
-3. Finally, "so perhaps the best way forward is..." (Synthesis)
-
-Avoid rigid headings like ## THESIS. Use natural transitions."""
-    elif response_style == "bullet_points":
-        output_instructions = """Format the response as a concise set of bullet points.
-
-*   **Thesis**: [Key point]
-*   **Antithesis**: [Key counter-point]
-*   **Synthesis**: [Resolution]
-
-Keep it brief and scannable."""
     else:
         output_instructions = f"""Structure your complete response as:
 

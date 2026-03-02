@@ -9,45 +9,37 @@ from hegelion.mcp.server import call_tool, list_tools
 @pytest.mark.asyncio
 class TestPromptMCPServer:
     async def test_list_tools(self):
-        """Test that all prompt tools are listed."""
+        """Test that exactly 4 tools are listed."""
         tools = await list_tools()
-        tool_names = [t.name for t in tools]
+        tool_names = sorted(t.name for t in tools)
 
-        assert "dialectical_workflow" in tool_names
-        assert "dialectical_single_shot" in tool_names
-        assert "thesis_prompt" in tool_names
-        assert "antithesis_prompt" in tool_names
-        assert "synthesis_prompt" in tool_names
-        assert "hegelion" in tool_names
-        assert "autocoding_workflow" in tool_names
+        assert tool_names == ["autocode", "autocode_session", "autocode_turn", "dialectic"]
 
-    async def test_dialectical_workflow_tool(self):
-        """Test dialectical workflow tool execution."""
-        args = {"query": "test query"}
-        content, workflow = await call_tool("dialectical_workflow", args)
+    async def test_dialectic_workflow(self):
+        """Test dialectic tool in workflow mode."""
+        args = {"query": "test query", "mode": "workflow"}
+        content, workflow = await call_tool("dialectic", args)
 
         assert len(content) >= 1
         assert content[-1].type == "text"
-
         assert workflow["query"] == "test query"
         assert len(workflow["steps"]) >= 3
         assert workflow["instructions"]["response_style"] == "sections"
 
-    async def test_dialectical_single_shot_tool(self, monkeypatch):
-        """Test single shot prompt tool."""
+    async def test_dialectic_single_shot(self, monkeypatch):
+        """Test dialectic tool in single_shot mode."""
         monkeypatch.delenv("HEGELION_MCP_AUTO_EXECUTE", raising=False)
-        args = {"query": "test query", "use_council": True}
-        result = await call_tool("dialectical_single_shot", args)
+        args = {"query": "test query", "mode": "single_shot", "use_council": True}
+        contents, structured = await call_tool("dialectic", args)
 
-        contents, structured = result
         assert len(contents) == 1
         prompt = contents[0].text
         assert "test query" in prompt
         assert "THE LOGICIAN" in prompt
         assert structured["response_style"] == "sections"
 
-    async def test_dialectical_single_shot_execute_via_cli(self, monkeypatch):
-        """Test single shot tool execution via configured CLI."""
+    async def test_dialectic_execute_via_cli(self, monkeypatch):
+        """Test dialectic execution via configured CLI."""
         code = (
             "import sys\n"
             "data = sys.stdin.read()\n"
@@ -63,198 +55,164 @@ class TestPromptMCPServer:
         monkeypatch.delenv("HEGELION_MCP_AUTO_EXECUTE", raising=False)
 
         contents, structured = await call_tool(
-            "dialectical_single_shot",
-            {"query": "test query", "execute": True, "response_style": "sections"},
+            "dialectic",
+            {
+                "query": "test query",
+                "mode": "single_shot",
+                "execute": True,
+                "response_style": "sections",
+            },
         )
 
         assert len(contents) == 1
         text = contents[0].text
         assert "## THESIS" in text
-        assert "## ANTITHESIS" in text
-        assert "## SYNTHESIS" in text
         assert structured["mode"] == "executed"
-        assert structured["llm_cli"] == "python3"
         assert structured["returncode"] == 0
-        assert structured["output"] == text
 
-    async def test_thesis_prompt_tool(self):
-        """Test thesis prompt tool."""
-        args = {"query": "test query"}
-        contents, structured = await call_tool("thesis_prompt", args)
-
-        assert len(contents) == 1
-        content = contents[0].text
-        assert "THESIS PROMPT" in content
-        assert "test query" in content
+    async def test_dialectic_thesis_mode(self):
+        """Test dialectic thesis mode."""
+        contents, structured = await call_tool(
+            "dialectic", {"query": "test query", "mode": "thesis"}
+        )
         assert structured["phase"] == "thesis"
+        assert "THESIS PROMPT" in contents[0].text
 
-    async def test_antithesis_prompt_tool(self):
-        """Test antithesis prompt tool."""
-        args = {"query": "test query", "thesis": "some thesis"}
-        contents, structured = await call_tool("antithesis_prompt", args)
-
-        content = contents[0].text
-        assert "ANTITHESIS PROMPT" in content
-        assert "test query" in content
-        assert "some thesis" in content
+    async def test_dialectic_antithesis_mode(self):
+        """Test dialectic antithesis mode."""
+        contents, structured = await call_tool(
+            "dialectic", {"query": "test query", "mode": "antithesis", "thesis": "some thesis"}
+        )
         assert structured["phase"] == "antithesis"
+        assert "some thesis" in contents[0].text
 
-    async def test_antithesis_council_prompt_tool(self):
-        """Test antithesis prompt tool with council."""
-        args = {"query": "test query", "thesis": "some thesis", "use_council": True}
-        contents, structured = await call_tool("antithesis_prompt", args)
-
-        content = contents[0].text
-        assert "COUNCIL ANTITHESIS PROMPTS" in content
-        assert "The Logician" in content
+    async def test_dialectic_antithesis_council(self):
+        """Test antithesis council mode."""
+        contents, structured = await call_tool(
+            "dialectic",
+            {"query": "test query", "mode": "antithesis", "thesis": "T", "use_council": True},
+        )
         assert structured["phase"] == "antithesis_council"
         assert len(structured["prompts"]) == 3
 
-    async def test_synthesis_prompt_tool(self):
-        """Test synthesis prompt tool."""
-        args = {"query": "test query", "thesis": "T", "antithesis": "A"}
-        contents, structured = await call_tool("synthesis_prompt", args)
-
-        content = contents[0].text
-        assert "SYNTHESIS PROMPT" in content
-        assert "T" in content
-        assert "A" in content
+    async def test_dialectic_synthesis_mode(self):
+        """Test dialectic synthesis mode."""
+        contents, structured = await call_tool(
+            "dialectic",
+            {"query": "test query", "mode": "synthesis", "thesis": "T", "antithesis": "A"},
+        )
         assert structured["phase"] == "synthesis"
 
-    async def test_single_prompt_json_response_style(self):
+    async def test_dialectic_json_response_style(self):
         """Ensure response_style alters the returned prompt."""
-        args = {
-            "query": "test query",
-            "format": "single_prompt",
-            "response_style": "json",
-        }
-
-        contents, structured = await call_tool("dialectical_workflow", args)
-
+        contents, structured = await call_tool(
+            "dialectic",
+            {
+                "query": "test query",
+                "mode": "workflow",
+                "format": "single_prompt",
+                "response_style": "json",
+            },
+        )
         assert "JSON" in contents[0].text
         assert structured["response_style"] == "json"
 
-    async def test_autocoding_workflow_tool(self):
-        """Ensure autocoding_workflow returns structured steps."""
+    async def test_autocode_workflow(self):
+        """Test autocode in workflow mode."""
         requirements = "- [ ] Add auth\n- [ ] Add tests\n"
         contents, workflow = await call_tool(
-            "autocoding_workflow", {"requirements": requirements, "max_turns": 3}
+            "autocode", {"requirements": requirements, "mode": "workflow", "max_turns": 3}
         )
 
         assert len(contents) == 2
-        assert workflow["schema_version"] == 1
+        assert workflow["schema_version"] == 2
         assert workflow["workflow_type"] == "dialectical_autocoding"
         assert workflow["max_turns"] == 3
-        assert len(workflow["steps"]) >= 3
 
-    async def test_hegelion_autocoding_entrypoint_workflow(self):
-        """Ensure hegelion entrypoint can return autocoding workflow."""
-        requirements = "- [ ] Add auth\n- [ ] Add tests\n"
-        contents, workflow = await call_tool(
-            "hegelion",
-            {"requirements": requirements, "mode": "workflow", "max_turns": 2},
-        )
-
-        assert len(contents) == 2
-        assert workflow["schema_version"] == 1
-        assert workflow["workflow_type"] == "dialectical_autocoding"
-        assert workflow["entrypoint"] == "hegelion"
-        assert workflow["mode"] == "workflow"
-        assert workflow["max_turns"] == 2
-
-    async def test_autocoding_loop_transitions_and_schema(self):
-        """Verify init -> player_prompt -> coach_prompt -> advance transitions and schema keys."""
+    async def test_autocode_init(self):
+        """Test autocode init mode."""
         requirements = "- [ ] Add auth\n- [ ] Add tests\n"
         _, init_state = await call_tool(
-            "autocoding_init",
-            {"requirements": requirements, "max_turns": 2, "session_name": "auth-loop"},
+            "autocode",
+            {
+                "requirements": requirements,
+                "mode": "init",
+                "max_turns": 2,
+                "session_name": "auth-loop",
+            },
         )
 
-        assert init_state["schema_version"] == 1
+        assert init_state["schema_version"] == 2
         assert init_state["session_name"] == "auth-loop"
         assert init_state["phase"] == "player"
-        assert init_state["status"] == "active"
 
-        _, player_struct = await call_tool("player_prompt", {"state": init_state})
+    async def test_autocode_turn_loop(self):
+        """Verify init -> player -> coach -> advance transitions."""
+        requirements = "- [ ] Add auth\n- [ ] Add tests\n"
+        _, init_state = await call_tool(
+            "autocode", {"requirements": requirements, "mode": "init", "max_turns": 2}
+        )
 
-        expected_player_keys = {
-            "schema_version",
-            "phase",
-            "prompt",
-            "instructions",
-            "expected_format",
-            "requirements_embedded",
-            "current_phase",
-            "next_phase",
-            "state",
-        }
-        assert expected_player_keys.issubset(player_struct.keys())
-        assert player_struct["schema_version"] == 1
+        # Player turn
+        _, player_struct = await call_tool("autocode_turn", {"role": "player", "state": init_state})
+
+        assert player_struct["schema_version"] == 2
         assert player_struct["phase"] == "player"
         assert player_struct["current_phase"] == "player"
         assert player_struct["next_phase"] == "coach"
         assert player_struct["state"]["phase"] == "coach"
 
-        _, coach_struct = await call_tool("coach_prompt", {"state": player_struct["state"]})
+        # Coach turn
+        _, coach_struct = await call_tool(
+            "autocode_turn", {"role": "coach", "state": player_struct["state"]}
+        )
 
-        expected_coach_keys = {
-            "schema_version",
-            "phase",
-            "prompt",
-            "instructions",
-            "expected_format",
-            "requirements_embedded",
-            "current_phase",
-            "next_phase",
-            "state",
-        }
-        assert expected_coach_keys.issubset(coach_struct.keys())
-        assert coach_struct["schema_version"] == 1
+        assert coach_struct["schema_version"] == 2
         assert coach_struct["phase"] == "coach"
         assert coach_struct["current_phase"] == "coach"
-        assert coach_struct["next_phase"] == "coach"
-        assert coach_struct["state"]["phase"] == "coach"
 
+        # Advance
         _, advanced_state = await call_tool(
-            "autocoding_advance",
+            "autocode_turn",
             {
+                "role": "advance",
                 "state": coach_struct["state"],
                 "coach_feedback": "Not approved; add missing tests.",
                 "approved": False,
             },
         )
 
-        assert advanced_state["schema_version"] == 1
+        assert advanced_state["schema_version"] == 2
         assert advanced_state["phase"] == "player"
-        assert advanced_state["status"] == "active"
         assert advanced_state["current_turn"] == 1
 
-    async def test_autocoding_invalid_transitions_have_clear_errors(self):
+    async def test_autocode_turn_invalid_transitions(self):
         """Invalid transitions should fail with expected/received phase and a hint."""
         requirements = "- [ ] Test\n"
-        _, init_state = await call_tool("autocoding_init", {"requirements": requirements})
+        _, init_state = await call_tool("autocode", {"requirements": requirements, "mode": "init"})
 
-        # coach_prompt expects coach, but we have player.
-        result = await call_tool("coach_prompt", {"state": init_state})
+        # coach expects coach phase, but we have player
+        result = await call_tool("autocode_turn", {"role": "coach", "state": init_state})
         assert isinstance(result, CallToolResult)
         assert result.isError is True
         assert result.structuredContent["expected"] == "coach"
         assert result.structuredContent["received"] == "player"
         assert "hint" in result.structuredContent
 
-        # player_prompt expects player, but the state returned from player_prompt is coach.
-        _, player_struct = await call_tool("player_prompt", {"state": init_state})
-        result = await call_tool("player_prompt", {"state": player_struct["state"]})
+        # player expects player, but state from player_turn is coach
+        _, player_struct = await call_tool("autocode_turn", {"role": "player", "state": init_state})
+        result = await call_tool(
+            "autocode_turn", {"role": "player", "state": player_struct["state"]}
+        )
         assert isinstance(result, CallToolResult)
         assert result.isError is True
         assert result.structuredContent["expected"] == "player"
         assert result.structuredContent["received"] == "coach"
-        assert "hint" in result.structuredContent
 
-        # autocoding_advance expects coach.
+        # advance expects coach
         result = await call_tool(
-            "autocoding_advance",
-            {"state": init_state, "coach_feedback": "nope", "approved": False},
+            "autocode_turn",
+            {"role": "advance", "state": init_state, "coach_feedback": "nope", "approved": False},
         )
         assert isinstance(result, CallToolResult)
         assert result.isError is True

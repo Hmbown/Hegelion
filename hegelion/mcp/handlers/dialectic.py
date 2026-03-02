@@ -11,7 +11,13 @@ from hegelion.core.prompt_dialectic import create_dialectical_workflow
 from hegelion.core.prompt_dialectic import create_single_shot_dialectic_prompt
 from hegelion.mcp.cli_exec import DEFAULT_TIMEOUT_SECONDS, auto_execute_enabled, load_llm_command
 from hegelion.mcp.cli_exec import run_llm_command, validate_llm_output
-from hegelion.mcp.constants import MCP_SCHEMA_VERSION, RESPONSE_STYLES, ToolName, WORKFLOW_FORMATS
+from hegelion.mcp.constants import (
+    DIALECTIC_MODES,
+    MCP_SCHEMA_VERSION,
+    RESPONSE_STYLES,
+    ToolName,
+    WORKFLOW_FORMATS,
+)
 from hegelion.mcp.progress import send_progress
 from hegelion.mcp.response import (
     DIALECTIC_PHASE_SCHEMAS,
@@ -20,11 +26,14 @@ from hegelion.mcp.response import (
     response_style_summary,
 )
 from hegelion.mcp.validation import (
+    Enum as EnumSpec,
+    Str,
     arg_error,
     get_enum_arg,
     get_optional_bool,
     get_optional_int,
     require_str_arg,
+    validated,
 )
 
 
@@ -52,20 +61,34 @@ def _render_prompt_response(title: str, prompt_obj: Any) -> str:
 **Expected Format:** {prompt_obj.expected_format}"""
 
 
-async def handle_dialectical_workflow(app: Server, arguments: dict[str, Any]):
-    name = ToolName.DIALECTICAL_WORKFLOW.value
-    query = require_str_arg(name, arguments, "query")
-    if isinstance(query, CallToolResult):
-        return query
+@validated(
+    ToolName.DIALECTIC.value,
+    query=Str(),
+    mode=EnumSpec(allowed=DIALECTIC_MODES, default="single_shot"),
+)
+async def handle_dialectic(app: Server, *, query: str, mode: str, _arguments: dict[str, Any]):
+    """Unified dialectic handler. Dispatches to mode-specific helpers."""
+    name = ToolName.DIALECTIC.value
+
+    if mode == "workflow":
+        return await _handle_workflow(app, name, query, _arguments)
+    if mode == "single_shot":
+        return await _handle_single_shot(app, name, query, _arguments)
+    if mode == "thesis":
+        return await _handle_thesis(app, name, query, _arguments)
+    if mode == "antithesis":
+        return await _handle_antithesis(app, name, query, _arguments)
+    if mode == "synthesis":
+        return await _handle_synthesis(app, name, query, _arguments)
+
+
+async def _handle_workflow(app: Server, name: str, query: str, arguments: dict[str, Any]):
     use_search = get_optional_bool(name, arguments, "use_search", False)
     if isinstance(use_search, CallToolResult):
         return use_search
     use_council = get_optional_bool(name, arguments, "use_council", False)
     if isinstance(use_council, CallToolResult):
         return use_council
-    use_judge = get_optional_bool(name, arguments, "use_judge", False)
-    if isinstance(use_judge, CallToolResult):
-        return use_judge
     format_type = get_enum_arg(name, arguments, "format", WORKFLOW_FORMATS, "workflow")
     if isinstance(format_type, CallToolResult):
         return format_type
@@ -105,7 +128,6 @@ async def handle_dialectical_workflow(app: Server, arguments: dict[str, Any]):
         query=query,
         use_search=use_search,
         use_council=use_council,
-        use_judge=use_judge,
         response_style=response_style,
     )
     workflow["schema_version"] = MCP_SCHEMA_VERSION
@@ -129,11 +151,7 @@ async def handle_dialectical_workflow(app: Server, arguments: dict[str, Any]):
     return (contents, workflow)
 
 
-async def handle_dialectical_single_shot(app: Server, arguments: dict[str, Any]):
-    name = ToolName.DIALECTICAL_SINGLE_SHOT.value
-    query = require_str_arg(name, arguments, "query")
-    if isinstance(query, CallToolResult):
-        return query
+async def _handle_single_shot(app: Server, name: str, query: str, arguments: dict[str, Any]):
     use_search = get_optional_bool(name, arguments, "use_search", False)
     if isinstance(use_search, CallToolResult):
         return use_search
@@ -273,12 +291,8 @@ async def handle_dialectical_single_shot(app: Server, arguments: dict[str, Any])
     return ([TextContent(type="text", text=output_text)], structured)
 
 
-async def handle_thesis_prompt(app: Server, arguments: dict[str, Any]):
+async def _handle_thesis(app: Server, name: str, query: str, arguments: dict[str, Any]):
     await send_progress(app, "━━━ THESIS ━━━ Generating prompt...", 1.0, 1.0)
-    name = ToolName.THESIS_PROMPT.value
-    query = require_str_arg(name, arguments, "query")
-    if isinstance(query, CallToolResult):
-        return query
     response_style = get_enum_arg(name, arguments, "response_style", RESPONSE_STYLES, "sections")
     if isinstance(response_style, CallToolResult):
         return response_style
@@ -292,12 +306,8 @@ async def handle_thesis_prompt(app: Server, arguments: dict[str, Any]):
     return ([TextContent(type="text", text=response)], structured)
 
 
-async def handle_antithesis_prompt(app: Server, arguments: dict[str, Any]):
+async def _handle_antithesis(app: Server, name: str, query: str, arguments: dict[str, Any]):
     await send_progress(app, "━━━ ANTITHESIS ━━━ Generating prompt...", 1.0, 1.0)
-    name = ToolName.ANTITHESIS_PROMPT.value
-    query = require_str_arg(name, arguments, "query")
-    if isinstance(query, CallToolResult):
-        return query
     thesis = require_str_arg(name, arguments, "thesis")
     if isinstance(thesis, CallToolResult):
         return thesis
@@ -344,12 +354,8 @@ async def handle_antithesis_prompt(app: Server, arguments: dict[str, Any]):
     return ([TextContent(type="text", text=response)], structured)
 
 
-async def handle_synthesis_prompt(app: Server, arguments: dict[str, Any]):
+async def _handle_synthesis(app: Server, name: str, query: str, arguments: dict[str, Any]):
     await send_progress(app, "━━━ SYNTHESIS ━━━ Generating prompt...", 1.0, 1.0)
-    name = ToolName.SYNTHESIS_PROMPT.value
-    query = require_str_arg(name, arguments, "query")
-    if isinstance(query, CallToolResult):
-        return query
     thesis = require_str_arg(name, arguments, "thesis")
     if isinstance(thesis, CallToolResult):
         return thesis

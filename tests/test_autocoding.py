@@ -28,7 +28,6 @@ class TestAutocodingState:
         assert state.current_turn == 0
         assert state.max_turns == 10
         assert state.phase == "player"
-        assert state.status == "active"
         assert state.turn_history == []
         assert state.last_coach_feedback is None
 
@@ -37,12 +36,10 @@ class TestAutocodingState:
         state = AutocodingState.create(
             requirements="test",
             max_turns=5,
-            approval_threshold=0.8,
             session_name="auth-feature",
         )
 
         assert state.max_turns == 5
-        assert state.approval_threshold == 0.8
         assert state.session_name == "auth-feature"
 
     def test_to_dict_serialization(self):
@@ -58,7 +55,7 @@ class TestAutocodingState:
         assert state_dict["requirements"] == "test requirements"
         assert state_dict["current_turn"] == 0
         assert state_dict["phase"] == "player"
-        assert state_dict["status"] == "active"
+        assert state_dict["schema_version"] == 2
 
     def test_from_dict_deserialization(self):
         """Test deserialization from dictionary."""
@@ -73,6 +70,57 @@ class TestAutocodingState:
         assert restored.session_name == "test-session"
         assert restored.requirements == original.requirements
         assert restored.phase == original.phase
+
+    def test_from_dict_v1_migration(self):
+        """Test v1 dict (with status, quality_scores, etc.) is loaded correctly."""
+        v1_dict = {
+            "schema_version": 1,
+            "session_id": "test-uuid",
+            "requirements": "test reqs",
+            "phase": "player",
+            "status": "active",
+            "quality_scores": [0.5, 0.7],
+            "approval_threshold": 0.9,
+            "current_turn": 2,
+            "max_turns": 10,
+            "turn_history": [],
+            "last_coach_feedback": None,
+        }
+        state = AutocodingState.from_dict(v1_dict)
+
+        assert state.session_id == "test-uuid"
+        assert state.phase == "player"
+        assert state.current_turn == 2
+        # v1 fields silently ignored
+        assert not hasattr(state, "status") or not hasattr(state, "quality_scores")
+
+    def test_from_dict_v1_init_phase_maps_to_player(self):
+        """Legacy phase='init' should map to the v2 player phase."""
+        state = AutocodingState.from_dict(
+            {
+                "schema_version": 1,
+                "session_id": "legacy-init",
+                "requirements": "test reqs",
+                "phase": "init",
+                "status": "active",
+            }
+        )
+
+        assert state.phase == "player"
+
+    def test_from_dict_v1_invalid_phase_uses_status_fallback(self):
+        """If phase is invalid, legacy status should drive fallback when possible."""
+        state = AutocodingState.from_dict(
+            {
+                "schema_version": 1,
+                "session_id": "legacy-timeout",
+                "requirements": "test reqs",
+                "phase": "unknown",
+                "status": "timeout",
+            }
+        )
+
+        assert state.phase == "timeout"
 
     def test_advance_to_coach(self):
         """Test advancing from player to coach phase."""
@@ -100,14 +148,11 @@ class TestAutocodingState:
         new_state = state.advance_turn(
             coach_feedback="COACH APPROVED",
             approved=True,
-            compliance_score=1.0,
         )
 
         assert new_state.phase == "approved"
-        assert new_state.status == "approved"
         assert new_state.current_turn == 1
         assert new_state.last_coach_feedback == "COACH APPROVED"
-        assert 1.0 in new_state.quality_scores
 
     def test_advance_turn_continue(self):
         """Test advancing turn when coach rejects."""
@@ -117,11 +162,9 @@ class TestAutocodingState:
         new_state = state.advance_turn(
             coach_feedback="Fix the tests",
             approved=False,
-            compliance_score=0.5,
         )
 
         assert new_state.phase == "player"
-        assert new_state.status == "active"
         assert new_state.current_turn == 1
         assert new_state.last_coach_feedback == "Fix the tests"
 
@@ -136,7 +179,6 @@ class TestAutocodingState:
         )
 
         assert new_state.phase == "timeout"
-        assert new_state.status == "timeout"
         assert new_state.current_turn == 1
 
     def test_is_complete(self):
@@ -157,29 +199,16 @@ class TestAutocodingState:
         state = state.advance_turn("feedback", approved=False)
         assert state.turns_remaining() == 4
 
-    def test_average_score(self):
-        """Test average score calculation."""
-        state = AutocodingState.create(requirements="test")
-        assert state.average_score() is None
-
-        state = state.advance_to_coach()
-        state = state.advance_turn("f1", approved=False, compliance_score=0.5)
-        state = state.advance_to_coach()
-        state = state.advance_turn("f2", approved=False, compliance_score=0.7)
-
-        assert state.average_score() == pytest.approx(0.6)
-
     def test_turn_history_recording(self):
         """Test that turn history is properly recorded."""
         state = AutocodingState.create(requirements="test")
         state = state.advance_to_coach()
-        state = state.advance_turn("feedback1", approved=False, compliance_score=0.5)
+        state = state.advance_turn("feedback1", approved=False)
 
         assert len(state.turn_history) == 1
         assert state.turn_history[0]["turn"] == 0
         assert state.turn_history[0]["feedback"] == "feedback1"
         assert state.turn_history[0]["approved"] is False
-        assert state.turn_history[0]["score"] == 0.5
 
     def test_validation_invalid_phase(self):
         """Test validation catches invalid phase."""
@@ -188,15 +217,6 @@ class TestAutocodingState:
                 session_id="test",
                 requirements="test",
                 phase="invalid_phase",
-            )
-
-    def test_validation_invalid_threshold(self):
-        """Test validation catches invalid threshold."""
-        with pytest.raises(ValueError, match="approval_threshold"):
-            AutocodingState(
-                session_id="test",
-                requirements="test",
-                approval_threshold=1.5,
             )
 
 
@@ -332,6 +352,12 @@ class TestAutocodingWorkflow:
         assert "Coach Turn" in step_names
         assert "Advance State" in step_names
 
+        actions = [s["action"] for s in workflow["steps"]]
+        assert actions[0] == "Call autocode with mode=init and requirements"
+        assert "autocode_turn with role=player" in actions[1]
+        assert "autocode_turn with role=coach" in actions[2]
+        assert "autocode_turn with role=advance" in actions[3]
+
     def test_workflow_termination_conditions(self):
         """Test workflow termination conditions."""
         workflow = create_autocoding_workflow(requirements="test", max_turns=10)
@@ -403,7 +429,6 @@ class TestSessionPersistence:
         state = state.advance_turn(
             coach_feedback="Needs work",
             approved=False,
-            compliance_score=0.5,
         )
 
         filepath = tmp_path / "session_with_history.json"
@@ -413,7 +438,6 @@ class TestSessionPersistence:
         assert len(loaded.turn_history) == 1
         assert loaded.turn_history[0]["feedback"] == "Needs work"
         assert loaded.last_coach_feedback == "Needs work"
-        assert loaded.quality_scores == [0.5]
 
     def test_save_and_load_session_with_unicode(self, tmp_path):
         """Test saving and loading session with Unicode content (Windows compatibility)."""
@@ -427,7 +451,6 @@ class TestSessionPersistence:
         state = state.advance_turn(
             coach_feedback="Missing émoji support 🎉",
             approved=False,
-            compliance_score=0.6,
         )
 
         filepath = tmp_path / "unicode_session.json"

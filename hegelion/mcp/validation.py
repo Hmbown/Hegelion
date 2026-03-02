@@ -1,11 +1,17 @@
 from __future__ import annotations
 
+import functools
+from dataclasses import dataclass
 from typing import Any
 
 from mcp.types import CallToolResult, TextContent
 
 from hegelion.core.autocoding_state import AutocodingState
 from hegelion.mcp.constants import MCP_SCHEMA_VERSION
+
+# ---------------------------------------------------------------------------
+# Error helpers
+# ---------------------------------------------------------------------------
 
 
 def state_error(tool_name: str, message: str, *, error: str) -> CallToolResult:
@@ -65,6 +71,11 @@ def phase_error(tool_name: str, *, expected: str, received: str, hint: str) -> C
         },
         isError=True,
     )
+
+
+# ---------------------------------------------------------------------------
+# Low-level validators (unchanged API)
+# ---------------------------------------------------------------------------
 
 
 def require_str_arg(tool_name: str, arguments: dict[str, Any], key: str) -> str | CallToolResult:
@@ -207,3 +218,122 @@ def parse_autocoding_state(tool_name: str, state_dict: Any) -> AutocodingState |
             f"Error: Invalid autocoding state: {exc}",
             error=f"Invalid autocoding state: {exc}",
         )
+
+
+# ---------------------------------------------------------------------------
+# Spec types for @validated decorator
+# ---------------------------------------------------------------------------
+
+
+@dataclass(frozen=True)
+class Str:
+    """Required non-empty string."""
+
+    pass
+
+
+@dataclass(frozen=True)
+class OptStr:
+    """Optional string (default None)."""
+
+    default: str | None = None
+
+
+@dataclass(frozen=True)
+class Bool:
+    """Optional boolean with default."""
+
+    default: bool = False
+
+
+@dataclass(frozen=True)
+class Int:
+    """Optional integer with default and minimum."""
+
+    default: int = 0
+    min_value: int = 0
+
+
+@dataclass(frozen=True)
+class Num:
+    """Optional number with default and range."""
+
+    default: float = 0.0
+    min_value: float = 0.0
+    max_value: float = 1.0
+
+
+@dataclass(frozen=True)
+class Enum:
+    """Enum string with allowed values and default."""
+
+    allowed: set[str] | frozenset[str] = frozenset()
+    default: str = ""
+
+
+@dataclass(frozen=True)
+class State:
+    """Parsed AutocodingState from dict."""
+
+    pass
+
+
+def _extract(tool_name: str, arguments: dict[str, Any], key: str, spec: Any) -> Any:
+    """Extract and validate a single argument according to its spec."""
+    if isinstance(spec, Str):
+        return require_str_arg(tool_name, arguments, key)
+    if isinstance(spec, OptStr):
+        return get_optional_str(tool_name, arguments, key, spec.default)
+    if isinstance(spec, Bool):
+        return get_optional_bool(tool_name, arguments, key, spec.default)
+    if isinstance(spec, Int):
+        return get_optional_int(tool_name, arguments, key, spec.default, min_value=spec.min_value)
+    if isinstance(spec, Num):
+        return get_optional_number(
+            tool_name,
+            arguments,
+            key,
+            spec.default,
+            min_value=spec.min_value,
+            max_value=spec.max_value,
+        )
+    if isinstance(spec, Enum):
+        return get_enum_arg(tool_name, arguments, key, set(spec.allowed), spec.default)
+    if isinstance(spec, State):
+        return parse_autocoding_state(tool_name, arguments.get(key))
+    raise TypeError(f"Unknown spec type: {type(spec)}")
+
+
+def validated(_tool_name: str = "", /, **specs: Any):
+    """Decorator that validates MCP tool arguments before calling the handler.
+
+    Usage::
+
+        @validated("dialectic",
+            query=Str(),
+            mode=Enum(DIALECTIC_MODES, default="single_shot"),
+            response_style=Enum(RESPONSE_STYLES, default="sections"),
+        )
+        async def handle_dialectic(app, *, query, mode, response_style, _arguments):
+            ...
+
+    The decorated function receives validated kwargs plus ``_arguments`` with the
+    raw arguments dict. If any validation fails, a ``CallToolResult`` error is
+    returned immediately.
+    """
+
+    def decorator(fn):
+        @functools.wraps(fn)
+        async def wrapper(app, arguments: dict[str, Any]):
+            tool_name = _tool_name or getattr(fn, "_tool_name", fn.__name__)
+            extracted: dict[str, Any] = {}
+            for key, spec in specs.items():
+                value = _extract(tool_name, arguments, key, spec)
+                if isinstance(value, CallToolResult):
+                    return value
+                extracted[key] = value
+            return await fn(app, _arguments=arguments, **extracted)
+
+        return wrapper
+
+    return decorator
