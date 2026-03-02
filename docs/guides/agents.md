@@ -25,7 +25,6 @@ workflow = create_dialectical_workflow(
     query="Should we subsidize fusion research?",
     use_search=True,
     use_council=True,
-    use_judge=True,
 )
 ```
 
@@ -70,4 +69,4 @@ Each `prompt` entry contains:
 
 - **Adversarial Antithesis:** explicit instructions to attack hallucinations.
 - **Structured Output:** prompts require `CONTRADICTION` / `EVIDENCE` fields and synthesis predictions.
-- **Optional Council & Judge:** multi-perspective critiques plus a scoring phase catch gaps before action.
+- **Optional Council:** multi-perspective critiques catch gaps before action.
