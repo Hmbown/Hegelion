@@ -57,7 +57,7 @@ The server returns structured prompts for the MCP client (Claude Desktop, Cursor
 ### Package Layout
 
 - **`hegelion/core/`** — Pure prompt generation and state management
-  - `constants.py` — Enums: `DialecticPhase`, `AutocodingPhase`, `AutocodingStatus`
+  - `constants.py` — Enums: `DialecticPhase`, `AutocodingPhase`
   - `prompt_dialectic.py` — `PromptDrivenDialectic` class generates thesis/antithesis/synthesis prompts
   - `prompt_autocoding.py` — `PromptDrivenAutocoding` class generates player/coach prompts
   - `autocoding_state.py` — `AutocodingState` dataclass: stateless session state machine with save/load persistence
