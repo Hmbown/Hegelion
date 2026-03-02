@@ -95,12 +95,7 @@ hegelion = ["py.typed"]
 [tool.pytest.ini_options]
 pythonpath = ["."]
 asyncio_mode = "auto"
-filterwarnings = [
-    "ignore:coroutine 'run_dialectic' was never awaited",
-    "ignore:coroutine 'run_benchmark' was never awaited",
-    "ignore:coroutine 'dialectic' was never awaited",
-    "ignore:coroutine 'quickstart' was never awaited",
-]
+filterwarnings = []
 
 [dependency-groups]
 dev = [
