@@ -31,6 +31,7 @@ from hegelion.mcp.validation import (
 
 
 def _session_label(state: AutocodingState) -> str:
+    """Return a human-readable label for the autocoding session."""
     if state.session_name:
         return f"{state.session_name} ({state.session_id[:8]}...)"
     return f"{state.session_id[:8]}..."
@@ -70,6 +71,7 @@ async def handle_autocode(
 async def _autocode_init(
     app: Server, name: str, requirements: str, max_turns: int, session_name: str | None
 ):
+    """Create a new autocoding session and return its initial state."""
     await send_progress(app, "Initializing autocoding session...", 1.0, 2.0)
 
     state = AutocodingState.create(
@@ -98,6 +100,7 @@ The session is ready. Next step: call `autocode_turn` with role=player and the r
 
 
 async def _autocode_workflow(app: Server, name: str, requirements: str, max_turns: int):
+    """Generate a structured autocoding workflow recipe as JSON."""
     workflow = create_autocoding_workflow(requirements=requirements, max_turns=max_turns)
     workflow["schema_version"] = MCP_SCHEMA_VERSION
 
@@ -114,6 +117,7 @@ async def _autocode_workflow(app: Server, name: str, requirements: str, max_turn
 
 
 async def _autocode_single_shot(app: Server, name: str, requirements: str, max_turns: int):
+    """Generate a single combined player+coach prompt for one-pass autocoding."""
     await send_progress(app, "Generating single-shot autocoding prompt...", 1.0, 1.0)
 
     autocoding = PromptDrivenAutocoding()
@@ -161,6 +165,7 @@ async def handle_autocode_turn(app: Server, *, role: str, _arguments: dict[str, 
 
 
 async def _turn_player(app: Server, name: str, arguments: dict[str, Any]):
+    """Generate the player implementation prompt and advance state to coach phase."""
     await send_progress(app, "Generating player prompt...", 1.0, 1.0)
 
     parsed_state = parse_autocoding_state(name, arguments.get("state"))
@@ -209,6 +214,7 @@ async def _turn_player(app: Server, name: str, arguments: dict[str, Any]):
 
 
 async def _turn_coach(app: Server, name: str, arguments: dict[str, Any]):
+    """Generate the coach verification prompt for the current turn."""
     await send_progress(app, "Generating coach prompt...", 1.0, 1.0)
 
     parsed_state = parse_autocoding_state(name, arguments.get("state"))
@@ -254,6 +260,7 @@ async def _turn_coach(app: Server, name: str, arguments: dict[str, Any]):
 
 
 async def _turn_advance(app: Server, name: str, arguments: dict[str, Any]):
+    """Advance autocoding state after coach review (approve, reject, or timeout)."""
     await send_progress(app, "Advancing autocoding state...", 1.0, 2.0)
 
     state_dict = arguments.get("state")
@@ -339,6 +346,7 @@ async def handle_autocode_session(app: Server, *, action: str, _arguments: dict[
 
 
 async def _session_save(app: Server, name: str, arguments: dict[str, Any]):
+    """Persist autocoding session state to a JSON file."""
     state_dict = arguments.get("state")
     filepath = require_str_arg(name, arguments, "filepath")
     if isinstance(filepath, CallToolResult):
@@ -369,6 +377,7 @@ Session saved successfully. Use `autocode_session` action=load with the filepath
 
 
 async def _session_load(app: Server, name: str, arguments: dict[str, Any]):
+    """Restore autocoding session state from a JSON file."""
     filepath = require_str_arg(name, arguments, "filepath")
     if isinstance(filepath, CallToolResult):
         return filepath
