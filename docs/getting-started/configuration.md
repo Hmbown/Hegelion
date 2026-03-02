@@ -4,11 +4,14 @@ Hegelion is prompt-driven by default. It does **not** require API keys or enviro
 
 ## Dialectical Tool Options
 
-These options are available on `dialectical_workflow` and `dialectical_single_shot`:
+These options are available on the unified `dialectic` tool:
 
+- `mode` (string): Selects the dialectical mode.
+  - `single_shot` — Returns one prompt covering thesis → antithesis → synthesis.
+  - `workflow` — Returns a step-by-step workflow of separate prompts.
+  - `thesis` / `antithesis` / `synthesis` — Individual phase prompts for manual control.
 - `use_search` (boolean): Instructs the prompt to use search tools before reasoning. This only affects the prompt; your host must provide search tooling.
 - `use_council` (boolean): Adds Logician, Empiricist, and Ethicist critiques during antithesis.
-- `use_judge` (boolean, workflow-only): Adds a final judge evaluation step.
 - `execute` (boolean, single_shot-only): If true, runs the generated prompt through a configured LLM CLI and returns the model output.
 - `timeout_seconds` (integer, single_shot-only): Timeout for the LLM CLI call when `execute=true` (default: 120).
 - `max_retries` (integer, single_shot-only): Best-effort retries if output fails basic format validation when `execute=true` (default: 0).
@@ -16,8 +19,6 @@ These options are available on `dialectical_workflow` and `dialectical_single_sh
   - `sections` (default)
   - `json`
   - `synthesis_only`
-  - `conversational`
-  - `bullet_points`
 - `format` (workflow-only):
   - `workflow` (default): returns a step-by-step workflow
   - `single_prompt`: returns a single consolidated prompt
@@ -36,22 +37,26 @@ The prompt is sent to the CLI on stdin, and the CLI's stdout becomes the tool re
 
 ## Autocoding Tool Options
 
-`hegelion` (autocoding entrypoint) accepts:
+Four unified tools replace the previous API:
+
+**`autocode`** — Entry point for autocoding sessions:
 
 - `mode` (`init`, `workflow`, `single_shot`; default `workflow`)
-- `max_turns` (integer, default 10)
-- `approval_threshold` (float, default 0.9; `init` mode only)
+- `max_turns` (integer, default 10; `init` mode only)
 - `session_name` (string, optional; `init` mode only)
 
-`autocoding_init` accepts:
+**`autocode_turn`** — Execute one step in the autocoding loop:
 
-- `max_turns` (integer, default 10): Maximum player/coach turns before timeout.
-- `approval_threshold` (float, default 0.9): Minimum compliance score for approval (0-1).
-- `session_name` (string, optional): A human-readable session label to help track sessions.
+- `role` (`player`, `coach`, `advance`)
+- `state` (AutocodingState JSON from previous tool call)
+- `coach_feedback` (string; required when `role=advance`)
+- `approved` (boolean; required when `role=advance`)
 
-`autocoding_advance` accepts:
+**`autocode_session`** — Persist or restore session state:
 
-- `compliance_score` (float, optional): The coach's numeric compliance score (0-1).
+- `action` (`save`, `load`)
+- `state` (AutocodingState JSON; required for `save`)
+- `filepath` (string; path to session JSON file)
 
 ## MCP Host Configuration
 
