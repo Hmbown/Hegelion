@@ -1,10 +1,10 @@
 # MCP Integration
 
-Hegelion works as an MCP (Model Context Protocol) server. It returns structured prompts that your existing LLM executes—no extra API keys required.
+Hegelion works as an MCP (Model Context Protocol) server. It returns structured prompts by default, and it can optionally execute those prompts through server-side backends when you want direct results or an independent Codex coach.
 
 ## How It Works
 
-When you use Hegelion via MCP, the server generates prompts for each dialectical phase. Your editor's model (Claude, GPT, Gemini, etc.) runs them. Hegelion never makes API calls in this mode.
+When you use Hegelion via MCP, the default path is prompt generation: your editor's model (Claude, GPT, Gemini, etc.) runs the returned prompt. If you set `execute=true`, Hegelion can instead route the prompt through `cli`, `codex_mcp`, or `auto`.
 
 ```
 Your Editor (Cursor, Claude Desktop, VS Code)
@@ -239,8 +239,8 @@ Unified dialectical reasoning tool. Use `mode` to select the operation:
 Use Hegelion's dialectic with mode=single_shot to analyze: "Can AI be creative?"
 ```
 
-Optional: single-call CLI execution (no server-side API keys). Configure the server with `HEGELION_LLM_COMMAND_JSON`
-and call with `execute: true` to return the final analysis directly.
+Optional: backend execution (no server-side API keys). Configure the server with `HEGELION_EXECUTION_BACKEND=auto`
+or pass `backend` per call. `auto` prefers Codex MCP, then CLI, then prompt-only fallback.
 
 **mode=workflow** — Returns a structured workflow for step-by-step execution. Use for complex queries.
 
@@ -265,6 +265,7 @@ Four unified tools for the player-coach loop:
 - `autocode` (mode=init) returns an `AutocodingState` with `phase: "player"`.
 - `autocode_turn` (role=player) returns the player prompt plus a `state` already advanced to `phase: "coach"` for the next call.
 - `autocode_turn` (role=coach) returns the coach prompt with the same `state` (still `phase: "coach"`) for the advance step.
+- `autocode_turn` (role=coach, execute=true, backend=auto) can run the coach prompt through a separate Codex backend and returns `coach_feedback` plus `coach_approved_detected`.
 - `autocode_turn` (role=advance) advances state after coach review (requires `coach_feedback` and `approved`).
 
 **Example:**
@@ -273,6 +274,18 @@ Use autocode with mode=init and these requirements:
 - Add user authentication to src/api.py
 - Add tests in tests/test_auth.py
 - All tests must pass
+```
+
+For Codex `/hegelion` flows, keep the current Codex session as the player and run the coach step like this:
+
+```json
+{
+  "role": "coach",
+  "state": { "...": "state from role=player" },
+  "execute": true,
+  "backend": "auto",
+  "cwd": "/absolute/workspace/path"
+}
 ```
 
 ## Feature Toggles

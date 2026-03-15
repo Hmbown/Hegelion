@@ -7,6 +7,7 @@ from hegelion.mcp.constants import (
     AUTOCODE_SESSION_ACTIONS_ENUM,
     AUTOCODE_TURN_ROLES_ENUM,
     DIALECTIC_MODES_ENUM,
+    EXECUTION_BACKEND_ENUM,
     RESPONSE_STYLE_ENUM,
     ToolName,
 )
@@ -78,19 +79,39 @@ def build_tools() -> list[Tool]:
                     "execute": {
                         "type": "boolean",
                         "description": (
-                            "If true and mode=single_shot, run the prompt through a configured LLM CLI "
-                            "and return model output."
+                            "If true and mode=single_shot, run the prompt through the selected backend "
+                            "and return model output when execution succeeds."
                         ),
                         "default": False,
                     },
+                    "backend": {
+                        "type": "string",
+                        "enum": list(EXECUTION_BACKEND_ENUM),
+                        "description": (
+                            "Execution backend when execute=true. "
+                            "auto prefers Codex MCP, then CLI, then prompt-only fallback."
+                        ),
+                        "default": "auto",
+                    },
+                    "cwd": {
+                        "type": "string",
+                        "description": (
+                            "Optional working directory for backend execution. "
+                            "Defaults to the MCP server process cwd."
+                        ),
+                    },
                     "timeout_seconds": {
                         "type": "integer",
-                        "description": "Timeout (seconds) for LLM CLI call when execute=true (default: 120)",
+                        "description": (
+                            "Timeout (seconds) for backend execution when execute=true (default: 120)"
+                        ),
                         "default": 120,
                     },
                     "max_retries": {
                         "type": "integer",
-                        "description": "Retries if output fails format validation when execute=true (default: 0)",
+                        "description": (
+                            "Retries if output fails format validation when execute=true (default: 0)"
+                        ),
                         "default": 0,
                     },
                 },
@@ -160,6 +181,37 @@ def build_tools() -> list[Tool]:
                     "approved": {
                         "type": "boolean",
                         "description": "Whether coach approved (required for role=advance)",
+                    },
+                    "execute": {
+                        "type": "boolean",
+                        "description": (
+                            "If true for role=player or role=coach, execute the returned prompt through "
+                            "the selected backend."
+                        ),
+                        "default": False,
+                    },
+                    "backend": {
+                        "type": "string",
+                        "enum": list(EXECUTION_BACKEND_ENUM),
+                        "description": (
+                            "Execution backend for role=player or role=coach. "
+                            "auto prefers Codex MCP, then CLI, then prompt-only fallback."
+                        ),
+                        "default": "auto",
+                    },
+                    "timeout_seconds": {
+                        "type": "integer",
+                        "description": (
+                            "Timeout (seconds) for backend execution when execute=true (default: 120)"
+                        ),
+                        "default": 120,
+                    },
+                    "cwd": {
+                        "type": "string",
+                        "description": (
+                            "Optional working directory for backend execution. "
+                            "Defaults to the MCP server process cwd."
+                        ),
                     },
                 },
                 "required": ["role", "state"],

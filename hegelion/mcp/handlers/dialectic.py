@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import os
 from typing import Any
 
 from mcp.server import Server
@@ -9,15 +10,17 @@ from mcp.types import CallToolResult, TextContent
 from hegelion.core.prompt_dialectic import PromptDrivenDialectic
 from hegelion.core.prompt_dialectic import create_dialectical_workflow
 from hegelion.core.prompt_dialectic import create_single_shot_dialectic_prompt
-from hegelion.mcp.cli_exec import DEFAULT_TIMEOUT_SECONDS, auto_execute_enabled, load_llm_command
-from hegelion.mcp.cli_exec import run_llm_command, validate_llm_output
+from hegelion.mcp.cli_exec import DEFAULT_TIMEOUT_SECONDS, auto_execute_enabled, validate_llm_output
 from hegelion.mcp.constants import (
     DIALECTIC_MODES,
+    EXECUTION_BACKENDS,
     MCP_SCHEMA_VERSION,
     RESPONSE_STYLES,
     ToolName,
     WORKFLOW_FORMATS,
 )
+from hegelion.mcp.execution import BackendExecutionError, BackendUnavailableError, execute_prompt
+from hegelion.mcp.execution import resolve_requested_backend
 from hegelion.mcp.progress import send_progress
 from hegelion.mcp.response import (
     DIALECTIC_PHASE_SCHEMAS,
@@ -32,6 +35,7 @@ from hegelion.mcp.validation import (
     get_enum_arg,
     get_optional_bool,
     get_optional_int,
+    get_optional_str,
     require_str_arg,
     validated,
 )
@@ -155,7 +159,7 @@ async def _handle_workflow(app: Server, name: str, query: str, arguments: dict[s
 
 
 async def _handle_single_shot(app: Server, name: str, query: str, arguments: dict[str, Any]):
-    """Generate a single-shot dialectic prompt, optionally executing via CLI."""
+    """Generate a single-shot dialectic prompt, optionally executing via a backend."""
     use_search = get_optional_bool(name, arguments, "use_search", False)
     if isinstance(use_search, CallToolResult):
         return use_search
@@ -169,6 +173,16 @@ async def _handle_single_shot(app: Server, name: str, query: str, arguments: dic
     execute = get_optional_bool(name, arguments, "execute", auto_execute_enabled())
     if isinstance(execute, CallToolResult):
         return execute
+    try:
+        default_backend = resolve_requested_backend(role=None, env=os.environ)
+    except ValueError as exc:
+        return arg_error(name, f"Error: {exc}", error=str(exc))
+    backend = get_enum_arg(name, arguments, "backend", EXECUTION_BACKENDS, default_backend)
+    if isinstance(backend, CallToolResult):
+        return backend
+    cwd = get_optional_str(name, arguments, "cwd")
+    if isinstance(cwd, CallToolResult):
+        return cwd
     timeout_seconds = get_optional_int(
         name, arguments, "timeout_seconds", DEFAULT_TIMEOUT_SECONDS, min_value=1
     )
@@ -193,6 +207,9 @@ async def _handle_single_shot(app: Server, name: str, query: str, arguments: dic
         "response_style": response_style,
         "prompt": prompt,
         "mode": "prompt",
+        "backend_requested": backend,
+        "backend_selected": "prompt",
+        "executed": False,
     }
     response_schema = response_schema_for_style(response_style)
     if response_schema:
@@ -203,96 +220,36 @@ async def _handle_single_shot(app: Server, name: str, query: str, arguments: dic
         contents = [TextContent(type="text", text=f"{note}\n\n{prompt}")]
         return (contents, structured)
 
-    command = None
     try:
-        command = load_llm_command()
-    except (json.JSONDecodeError, ValueError) as exc:
+        await send_progress(app, f"━━━ Executing dialectic via {backend} ━━━", 1.0, 2.0)
+        execution = await execute_prompt(
+            prompt,
+            backend=backend,
+            cwd=cwd,
+            timeout_seconds=timeout_seconds,
+            max_retries=max_retries,
+            validator=lambda output: validate_llm_output(output, response_style),
+        )
+    except (BackendExecutionError, BackendUnavailableError, ValueError) as exc:
         return arg_error(
             name,
-            f"Error: Invalid LLM CLI configuration: {exc}",
-            error=f"Invalid LLM CLI configuration: {exc}",
+            f"Error: {exc}",
+            error=str(exc),
         )
 
-    if not command:
-        return arg_error(
-            name,
-            "Error: Execution requested but no LLM CLI command configured. "
-            "Set HEGELION_LLM_COMMAND_JSON or HEGELION_LLM_COMMAND.",
-            error="Missing LLM CLI command",
-            expected="HEGELION_LLM_COMMAND_JSON or HEGELION_LLM_COMMAND",
-            received=None,
-        )
+    await send_progress(app, "━━━ Execution result ready ━━━", 2.0, 2.0)
 
-    await send_progress(app, "━━━ Executing dialectic via CLI ━━━", 1.0, 2.0)
+    structured.update(execution.to_metadata())
+    structured["execute_requested"] = True
 
-    attempts = 0
-    last_stdout = ""
-    last_stderr = ""
-    last_returncode = 0
-    last_validation_error: str | None = None
-    attempt_prompt = prompt
+    if execution.executed:
+        structured["mode"] = "executed"
+        structured["execute"] = True
+        return ([TextContent(type="text", text=execution.output or "")], structured)
 
-    for attempt in range(max_retries + 1):
-        attempts = attempt + 1
-        if max_retries:
-            await send_progress(
-                app,
-                f"━━━ CLI attempt {attempts}/{max_retries + 1} ━━━",
-                1.0 + (attempts / (max_retries + 1)),
-                2.0,
-            )
-
-        try:
-            stdout, stderr, returncode = await run_llm_command(
-                command, attempt_prompt, timeout_seconds=timeout_seconds
-            )
-        except (FileNotFoundError, TimeoutError) as exc:
-            return arg_error(name, f"Error: {exc}", error=str(exc))
-
-        last_stdout, last_stderr, last_returncode = stdout, stderr, returncode
-        if returncode != 0:
-            return arg_error(
-                name,
-                f"Error: LLM CLI exited with code {returncode}.\n\nstderr:\n{stderr.strip()}",
-                error="LLM CLI failed",
-                expected="return code 0",
-                received=returncode,
-            )
-
-        output = stdout.strip()
-        valid, validation_error = validate_llm_output(output, response_style)
-        if valid:
-            last_validation_error = None
-            break
-
-        last_validation_error = validation_error or "Validation failed"
-        attempt_prompt = (
-            f"{prompt}\n\nIMPORTANT: Your last response did not match the required format "
-            f"({last_validation_error}). Re-run and strictly follow the output format instructions. "
-            "Output only the final answer."
-        )
-
-    await send_progress(app, "━━━ CLI result ready ━━━", 2.0, 2.0)
-
-    output_text = last_stdout.strip()
-    structured.update(
-        {
-            "mode": "executed",
-            "execute": True,
-            "llm_cli": command[0],
-            "timeout_seconds": timeout_seconds,
-            "max_retries": max_retries,
-            "attempts": attempts,
-            "returncode": last_returncode,
-            "output": output_text,
-        }
-    )
-    if last_stderr.strip():
-        structured["stderr"] = last_stderr.strip()
-    if last_validation_error:
-        structured["validation_error"] = last_validation_error
-
-    return ([TextContent(type="text", text=output_text)], structured)
+    skipped_reason = execution.execution_skipped_reason or "Execution skipped"
+    skipped_text = f"{skipped_reason}\n\n{note}\n\n{prompt}"
+    return ([TextContent(type="text", text=skipped_text)], structured)
 
 
 async def _handle_thesis(app: Server, name: str, query: str, arguments: dict[str, Any]):

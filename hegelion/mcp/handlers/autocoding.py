@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import os
 from typing import Any
 
 from mcp.server import Server
@@ -9,13 +10,17 @@ from mcp.types import CallToolResult, TextContent
 from hegelion.core.autocoding_state import AutocodingState, load_session, save_session
 from hegelion.core.constants import AutocodingPhase
 from hegelion.core.prompt_autocoding import PromptDrivenAutocoding, create_autocoding_workflow
+from hegelion.mcp.cli_exec import DEFAULT_TIMEOUT_SECONDS
 from hegelion.mcp.constants import (
     AUTOCODE_MODES,
     AUTOCODE_SESSION_ACTIONS,
     AUTOCODE_TURN_ROLES,
+    EXECUTION_BACKENDS,
     MCP_SCHEMA_VERSION,
     ToolName,
 )
+from hegelion.mcp.execution import BackendExecutionError, BackendUnavailableError, execute_prompt
+from hegelion.mcp.execution import resolve_requested_backend
 from hegelion.mcp.progress import send_progress
 from hegelion.mcp.validation import (
     Enum as EnumSpec,
@@ -23,6 +28,10 @@ from hegelion.mcp.validation import (
     OptStr,
     Str,
     arg_error,
+    get_enum_arg,
+    get_optional_bool,
+    get_optional_int,
+    get_optional_str,
     parse_autocoding_state,
     phase_error,
     require_str_arg,
@@ -35,6 +44,43 @@ def _session_label(state: AutocodingState) -> str:
     if state.session_name:
         return f"{state.session_name} ({state.session_id[:8]}...)"
     return f"{state.session_id[:8]}..."
+
+
+def _coach_approved_detected(feedback: str) -> bool:
+    normalized = " ".join(feedback.upper().split())
+    return "COACH APPROVED" in normalized
+
+
+def _parse_execution_options(
+    name: str,
+    arguments: dict[str, Any],
+    *,
+    role: str,
+) -> tuple[bool, str, int, str | None] | CallToolResult:
+    execute = get_optional_bool(name, arguments, "execute", False)
+    if isinstance(execute, CallToolResult):
+        return execute
+
+    try:
+        default_backend = resolve_requested_backend(role=role, env=os.environ)
+    except ValueError as exc:
+        return arg_error(name, f"Error: {exc}", error=str(exc))
+
+    backend = get_enum_arg(name, arguments, "backend", EXECUTION_BACKENDS, default_backend)
+    if isinstance(backend, CallToolResult):
+        return backend
+
+    timeout_seconds = get_optional_int(
+        name, arguments, "timeout_seconds", DEFAULT_TIMEOUT_SECONDS, min_value=1
+    )
+    if isinstance(timeout_seconds, CallToolResult):
+        return timeout_seconds
+
+    cwd = get_optional_str(name, arguments, "cwd")
+    if isinstance(cwd, CallToolResult):
+        return cwd
+
+    return execute, backend, timeout_seconds, cwd
 
 
 # ---------------------------------------------------------------------------
@@ -210,6 +256,39 @@ async def _turn_player(app: Server, name: str, arguments: dict[str, Any]):
 **Instructions:** {prompt_obj.instructions}
 **Next Step:** After executing this prompt, call `autocode_turn` role=coach with the updated state."""
 
+    execution_options = _parse_execution_options(name, arguments, role="player")
+    if isinstance(execution_options, CallToolResult):
+        return execution_options
+
+    execute, backend, timeout_seconds, cwd = execution_options
+    if not execute:
+        return ([TextContent(type="text", text=response)], structured)
+
+    await send_progress(app, f"Executing player prompt via {backend}...", 1.0, 2.0)
+    try:
+        execution = await execute_prompt(
+            prompt_obj.prompt,
+            backend=backend,
+            role="player",
+            cwd=cwd,
+            timeout_seconds=timeout_seconds,
+        )
+    except (BackendExecutionError, BackendUnavailableError, ValueError) as exc:
+        return arg_error(name, f"Error: {exc}", error=str(exc))
+
+    await send_progress(app, "Player execution result ready", 2.0, 2.0)
+    structured.update(execution.to_metadata())
+    structured["execute_requested"] = True
+
+    if execution.executed:
+        structured["player_output"] = execution.output or ""
+        response = f"{response}\n\n---\n**Player Backend Output:**\n{execution.output or ''}"
+    else:
+        response = (
+            f"{response}\n\n---\n**Execution:** "
+            f"{execution.execution_skipped_reason or 'Execution skipped'}"
+        )
+
     return ([TextContent(type="text", text=response)], structured)
 
 
@@ -255,6 +334,44 @@ async def _turn_coach(app: Server, name: str, arguments: dict[str, Any]):
 ---
 **Instructions:** {prompt_obj.instructions}
 **Next Step:** After executing this prompt, call `autocode_turn` role=advance with the coach's feedback."""
+
+    execution_options = _parse_execution_options(name, arguments, role="coach")
+    if isinstance(execution_options, CallToolResult):
+        return execution_options
+
+    execute, backend, timeout_seconds, cwd = execution_options
+    if not execute:
+        return ([TextContent(type="text", text=response)], structured)
+
+    await send_progress(app, f"Executing coach prompt via {backend}...", 1.0, 2.0)
+    try:
+        execution = await execute_prompt(
+            prompt_obj.prompt,
+            backend=backend,
+            role="coach",
+            cwd=cwd,
+            timeout_seconds=timeout_seconds,
+        )
+    except (BackendExecutionError, BackendUnavailableError, ValueError) as exc:
+        return arg_error(name, f"Error: {exc}", error=str(exc))
+
+    await send_progress(app, "Coach execution result ready", 2.0, 2.0)
+    structured.update(execution.to_metadata())
+    structured["execute_requested"] = True
+
+    coach_feedback = execution.output if execution.executed else None
+    structured["coach_feedback"] = coach_feedback
+    structured["coach_approved_detected"] = (
+        _coach_approved_detected(coach_feedback) if coach_feedback else False
+    )
+
+    if execution.executed:
+        response = f"{response}\n\n---\n**Independent Coach Output:**\n{coach_feedback or ''}"
+    else:
+        response = (
+            f"{response}\n\n---\n**Execution:** "
+            f"{execution.execution_skipped_reason or 'Execution skipped'}"
+        )
 
     return ([TextContent(type="text", text=response)], structured)
 

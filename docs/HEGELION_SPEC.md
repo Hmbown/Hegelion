@@ -1,6 +1,7 @@
 # Hegelion Specification
 
 This document describes Hegelion's prompt-driven schemas and MCP tool outputs.
+Prompt generation remains the default behavior, with optional backend execution metadata added when tools run prompts server-side.
 
 ## Schema Versioning
 
@@ -32,6 +33,9 @@ Structured content:
   "use_search": false,
   "use_council": false,
   "response_style": "sections",
+  "backend_requested": "auto",
+  "backend_selected": "prompt",
+  "executed": false,
   "mode": "prompt",
   "prompt": "...",
   "response_schema": { "optional": true }
@@ -40,24 +44,47 @@ Structured content:
 
 `response_schema` appears when `response_style="json"`.
 
-Optional CLI execution:
+Optional backend execution:
 
-If `execute=true` is passed (or `HEGELION_MCP_AUTO_EXECUTE=1` is set) *and* the server is configured with
-`HEGELION_LLM_COMMAND_JSON` (preferred) or `HEGELION_LLM_COMMAND`, the tool runs the generated prompt through that CLI.
+If `execute=true` is passed (or `HEGELION_MCP_AUTO_EXECUTE=1` is set), `dialectic` routes execution through the selected backend:
 
-In this mode, `content[0].text` is the model output (not the prompt), and structured content adds:
+- `prompt` — never executes; returns prompt output only
+- `cli` — uses `HEGELION_LLM_COMMAND_JSON` or `HEGELION_LLM_COMMAND`
+- `codex_mcp` — launches `codex mcp-server` and calls the `codex` / `codex-reply` MCP tools
+- `auto` — prefers `codex_mcp`, then `cli`, then prompt-only fallback
+
+When execution succeeds, `content[0].text` is the model output (not the prompt), and structured content adds:
 
 ```json
 {
+  "backend_requested": "auto",
+  "backend_selected": "codex_mcp",
+  "executed": true,
   "mode": "executed",
-  "llm_cli": "codex",
   "timeout_seconds": 120,
   "max_retries": 0,
   "attempts": 1,
-  "returncode": 0,
   "output": "...",
+  "llm_cli": { "optional": true },
+  "returncode": { "optional": true },
   "stderr": { "optional": true },
+  "thread_id": { "optional": true },
+  "codex_tool": { "optional": true },
+  "codex_model": { "optional": true },
+  "codex_sandbox": { "optional": true },
+  "codex_approval_policy": { "optional": true },
   "validation_error": { "optional": true }
+}
+```
+
+When `backend="auto"` cannot find a usable executable backend, Hegelion does not error. It returns prompt output with:
+
+```json
+{
+  "backend_requested": "auto",
+  "backend_selected": "prompt",
+  "executed": false,
+  "execution_skipped_reason": "No executable backend available; returning prompt-only output. ..."
 }
 ```
 
@@ -155,11 +182,31 @@ Four unified tools replace the previous 14-tool API:
   - `mode=single_shot`: Generate a single combined player+coach prompt.
 - **`autocode_turn`** — Execute one step in the autocoding loop.
   - `role=player`: Generate implementation prompt, advances state to `coach` phase.
-  - `role=coach`: Generate verification prompt for current turn.
+  - `role=coach`: Generate verification prompt for current turn. With `execute=true`, optionally run that prompt through the selected backend and return `coach_feedback`.
   - `role=advance`: Advance state after coach review (requires `coach_feedback` and `approved`).
 - **`autocode_session`** — Persist or restore session state.
   - `action=save`: Save `AutocodingState` to a JSON file.
   - `action=load`: Restore `AutocodingState` from a JSON file.
+
+### `autocode_turn` execution metadata
+
+For `role=player` or `role=coach`, `autocode_turn` accepts optional `execute`, `backend`, `timeout_seconds`, and `cwd`.
+
+For `role=coach, execute=true`, the returned structured content keeps the same `state` and adds:
+
+```json
+{
+  "backend_requested": "auto",
+  "backend_selected": "codex_mcp",
+  "executed": true,
+  "coach_feedback": "...",
+  "coach_approved_detected": true,
+  "thread_id": { "optional": true },
+  "execution_skipped_reason": { "optional": true }
+}
+```
+
+`coach_approved_detected` is a convenience detector for `COACH APPROVED`. State transitions still require a separate `role=advance` call.
 
 ## Error Responses
 

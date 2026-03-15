@@ -56,6 +56,7 @@ class TestAutocodingState:
         assert state_dict["current_turn"] == 0
         assert state_dict["phase"] == "player"
         assert state_dict["schema_version"] == 2
+        assert "thread_id" not in state_dict
 
     def test_from_dict_deserialization(self):
         """Test deserialization from dictionary."""
@@ -357,6 +358,7 @@ class TestAutocodingWorkflow:
         assert "autocode_turn with role=player" in actions[1]
         assert "autocode_turn with role=coach" in actions[2]
         assert "autocode_turn with role=advance" in actions[3]
+        assert "execute=true" in actions[2]
 
     def test_workflow_termination_conditions(self):
         """Test workflow termination conditions."""

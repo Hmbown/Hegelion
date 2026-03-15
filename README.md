@@ -4,8 +4,9 @@
 
 Hegelion applies dialectical reasoning to LLMs: forcing models to argue with themselves before reaching conclusions. This produces better reasoning for questions and better code for implementations.
 
-Hegelion is prompt-driven by default: it generates prompts for your editor or LLM to execute, with no API keys required.
-Use it via MCP in editors like Claude Desktop/Cursor/VS Code, or via the Python API in your own agents.
+Hegelion is prompt-driven by default: it generates structured prompts for your editor to execute, no API keys required. Optional server-side backends enable direct execution and independent coach verification.
+
+Use it via MCP in Claude Desktop, Cursor, VS Code, or any MCP-enabled editor, or via the Python API in your own agents.
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT) ![Python 3.10+](https://img.shields.io/badge/python-3.10+-blue.svg) [![PyPI version](https://img.shields.io/pypi/v/hegelion.svg)](https://pypi.org/project/hegelion/)
 
@@ -60,6 +61,7 @@ REQUIREMENTS (Source of Truth)
 **Player**: Implements requirements, writes tests, responds to feedback. Does NOT declare success.
 
 **Coach**: Independently verifies each requirement, ignores player's self-assessment, outputs structured checklist.
+When Codex MCP is available, Hegelion can launch a separate Codex session to act as the coach while the current session remains the player.
 
 ### Key Insight
 
@@ -86,16 +88,16 @@ You: Call autocode_turn with role=player and implement
 
 [Player writes code and tests]
 
-You: Call autocode_turn with role=coach and verify
+You: Call autocode_turn with role=coach, execute=true, backend=auto, cwd=<workspace>
 
-[Coach: ✓ auth endpoint exists, ✗ missing password validation test]
+[Separate Codex coach verifies the workspace when available]
 
 You: Call autocode_turn with role=advance, coach_feedback, approved=false
 
 [Loop until COACH APPROVED]
 ```
 
-**State passing note:** `autocode_turn` with `role=player` returns a player prompt plus an updated `state` advanced to `phase: "coach"` for the next call. Prompt outputs include `current_phase` (prompt phase) and `next_phase` (returned state's phase). All structured outputs include `schema_version` for client stability.
+**State flow:** Each `autocode_turn` returns an updated `state` for the next call — pass it into the next tool invocation. All outputs include `schema_version` for client stability. See [MCP Integration](docs/guides/mcp-integration.md) for Codex coach setup.
 
 ### MCP Tools
 
@@ -110,7 +112,7 @@ You: Call autocode_turn with role=advance, coach_feedback, approved=false
 
 This repo includes a Codex skill at `skills/hegelion/SKILL.md`. Install it with your skill
 installer (for example, `install-skill-from-github.py --repo Hmbown/Hegelion --path skills/hegelion`).
-It mirrors the `/hegelion` command and uses MCP tools when available.
+It mirrors the `/hegelion` command, treats the current Codex session as the player, and routes coach turns to a separate Codex backend when available.
 
 ### Why It Works
 
@@ -278,6 +280,10 @@ Issues and PRs welcome. For significant changes, open a discussion first.
 
 ### v0.5.0 (March 2026)
 
+- **Execution backends**: Added `prompt`, `cli`, `codex_mcp`, and `auto` backend selection for MCP execution flows
+- **Independent Codex coach**: `autocode_turn(role=coach, execute=true)` can now run through a separate Codex MCP session and return `coach_feedback`
+- **Prompt fallback**: `backend=auto` now degrades cleanly to prompt-only output when no executable backend is available
+- **LangGraph removal**: Removed the LangGraph package, dependency extra, tests, and docs references
 - **MCP tool consolidation**: 14 tools simplified to 4 unified tools: `dialectic`, `autocode`, `autocode_turn`, `autocode_session`
 - **State machine simplification**: `AutocodingStatus` removed; `phase` is now the only state indicator
 - **Schema migration**: `schema_version` bumped to `2` with backward-compatible v1-to-v2 loading
@@ -287,8 +293,6 @@ Issues and PRs welcome. For significant changes, open a discussion first.
 - **Public API exports**: `hegelion` now exports key classes directly (`DialecticalPrompt`, `PromptDrivenDialectic`, `AutocodingState`, etc.)
 - **PEP 561 `py.typed` marker**: Enables type-checker support for library consumers
 - **`--version` flag**: Both `hegelion-server` and `hegelion-setup-mcp` now support `--version`
-- **Updated model references**: `.env.example` modernized (Claude Sonnet 4.6, GPT-5.2, Gemini 3 Pro)
-- **CHANGELOG fix**: Corrected malformed duplicate section headers
 
 > **Note:** v0.4.x entries below reference pre-v0.5 tool names (e.g. `dialectical_single_shot`). These were replaced by the unified `dialectic` tool in v0.5.0.
 

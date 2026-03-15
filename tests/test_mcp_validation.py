@@ -16,6 +16,7 @@ from hegelion.mcp.validation import (
     get_optional_bool,
     get_optional_int,
     get_optional_number,
+    get_optional_str,
     parse_autocoding_state,
     require_str_arg,
     validated,
@@ -63,6 +64,19 @@ def test_get_optional_int_rejects_bool():
 
 def test_get_optional_number_bounds():
     result = get_optional_number("tool", {"score": 2.0}, "score", 0.5, min_value=0.0, max_value=1.0)
+
+    assert isinstance(result, CallToolResult)
+    assert result.isError is True
+
+
+def test_get_optional_str_valid():
+    result = get_optional_str("tool", {"cwd": "/tmp"}, "cwd")
+
+    assert result == "/tmp"
+
+
+def test_get_optional_str_invalid():
+    result = get_optional_str("tool", {"cwd": ""}, "cwd")
 
     assert isinstance(result, CallToolResult)
     assert result.isError is True

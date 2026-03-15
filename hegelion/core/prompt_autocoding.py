@@ -84,6 +84,7 @@ This is the first turn. Read the requirements carefully and begin implementation
         prompt = f"""You are the PLAYER agent in a dialectical autocoding session.
 
 Your role is to IMPLEMENT the requirements. A separate COACH agent will verify your work.
+The PLAYER never self-approves and never substitutes its own judgment for the coach.
 
 ## REQUIREMENTS (Source of Truth)
 {requirements}
@@ -113,6 +114,7 @@ Before implementing, explore the workspace:
 - Focus on IMPLEMENTATION, not self-assessment
 - The coach will INDEPENDENTLY verify compliance
 - Leave verification to the coach
+- Never declare or imply coach approval yourself
 
 Begin your implementation now. Work methodically through the requirements."""
 
@@ -145,6 +147,8 @@ Begin your implementation now. Work methodically through the requirements."""
         prompt = f"""You are the COACH agent in a dialectical autocoding session.
 
 Your role is to VERIFY the implementation against requirements. Be rigorous and objective.
+You are an independent reviewer with fresh context. Your judgment is authoritative for this turn.
+You are not delegated by the player and you must not accept the player's self-assessment as evidence.
 
 ## REQUIREMENTS (Source of Truth)
 {requirements}
@@ -171,6 +175,7 @@ Thoroughly verify the implementation:
 - VERIFY each requirement by examining code and running tests
 - Be specific about what is missing or incorrect
 - Provide actionable feedback the player can address
+- Treat this as an independent verification pass, not a collaborative rubber stamp
 
 ## OUTPUT FORMAT
 
@@ -314,7 +319,10 @@ def create_autocoding_workflow(
             {
                 "step": 3,
                 "name": "Coach Turn",
-                "action": "Call autocode_turn with role=coach and state, then execute returned prompt",
+                "action": (
+                    "Call autocode_turn with role=coach, state, execute=true, backend=auto, "
+                    "and optionally cwd, then use returned coach_feedback"
+                ),
                 "returns": "Compliance checklist and feedback",
                 "repeat": True,
             },
@@ -334,8 +342,11 @@ def create_autocoding_workflow(
         },
         "instructions": {
             "execution_mode": "iterative",
-            "description": "Alternate between player and coach phases until approved or timeout",
+            "description": (
+                "Alternate between player and independent coach phases until approved or timeout"
+            ),
             "state_passing": "Pass AutocodingState dict between all tool calls",
+            "approval_rule": "Only the coach can approve; the player must never self-approve.",
         },
     }
 

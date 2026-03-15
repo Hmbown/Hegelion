@@ -3,6 +3,7 @@
 import json
 import pytest
 from mcp.types import CallToolResult
+from hegelion.mcp.execution import ExecutionResult
 from hegelion.mcp.server import call_tool, list_tools
 
 
@@ -60,6 +61,7 @@ class TestPromptMCPServer:
                 "query": "test query",
                 "mode": "single_shot",
                 "execute": True,
+                "backend": "cli",
                 "response_style": "sections",
             },
         )
@@ -68,7 +70,105 @@ class TestPromptMCPServer:
         text = contents[0].text
         assert "## THESIS" in text
         assert structured["mode"] == "executed"
+        assert structured["backend_requested"] == "cli"
+        assert structured["backend_selected"] == "cli"
+        assert structured["executed"] is True
         assert structured["returncode"] == 0
+
+    async def test_dialectic_execute_via_codex_backend(self, monkeypatch):
+        """Test dialectic execution through the Codex MCP backend."""
+
+        async def fake_execute_prompt(prompt, **kwargs):
+            assert "test query" in prompt
+            assert kwargs["backend"] == "codex_mcp"
+            return ExecutionResult(
+                backend_requested="codex_mcp",
+                backend_selected="codex_mcp",
+                executed=True,
+                output="## THESIS\nT\n\n## ANTITHESIS\nA\n\n## SYNTHESIS\nS",
+                details={"thread_id": "thread-123", "codex_tool": "codex"},
+            )
+
+        monkeypatch.setattr("hegelion.mcp.handlers.dialectic.execute_prompt", fake_execute_prompt)
+
+        contents, structured = await call_tool(
+            "dialectic",
+            {
+                "query": "test query",
+                "mode": "single_shot",
+                "execute": True,
+                "backend": "codex_mcp",
+                "response_style": "sections",
+            },
+        )
+
+        assert "## THESIS" in contents[0].text
+        assert structured["backend_requested"] == "codex_mcp"
+        assert structured["backend_selected"] == "codex_mcp"
+        assert structured["thread_id"] == "thread-123"
+        assert structured["codex_tool"] == "codex"
+        assert structured["mode"] == "executed"
+
+    async def test_dialectic_execute_auto_falls_back_to_cli(self, monkeypatch):
+        """Test dialectic metadata when auto resolves to CLI."""
+
+        async def fake_execute_prompt(prompt, **kwargs):
+            del prompt
+            assert kwargs["backend"] == "auto"
+            return ExecutionResult(
+                backend_requested="auto",
+                backend_selected="cli",
+                executed=True,
+                output="## THESIS\nT\n\n## ANTITHESIS\nA\n\n## SYNTHESIS\nS",
+                details={"llm_cli": "python3", "attempts": 1, "returncode": 0},
+            )
+
+        monkeypatch.setattr("hegelion.mcp.handlers.dialectic.execute_prompt", fake_execute_prompt)
+
+        _, structured = await call_tool(
+            "dialectic",
+            {
+                "query": "test query",
+                "mode": "single_shot",
+                "execute": True,
+                "backend": "auto",
+                "response_style": "sections",
+            },
+        )
+
+        assert structured["backend_requested"] == "auto"
+        assert structured["backend_selected"] == "cli"
+        assert structured["llm_cli"] == "python3"
+
+    async def test_dialectic_execute_auto_falls_back_to_prompt(self, monkeypatch):
+        """Test dialectic prompt fallback when auto cannot execute."""
+
+        async def fake_execute_prompt(prompt, **kwargs):
+            del prompt, kwargs
+            return ExecutionResult(
+                backend_requested="auto",
+                backend_selected="prompt",
+                executed=False,
+                execution_skipped_reason="No executable backend available",
+            )
+
+        monkeypatch.setattr("hegelion.mcp.handlers.dialectic.execute_prompt", fake_execute_prompt)
+
+        contents, structured = await call_tool(
+            "dialectic",
+            {
+                "query": "test query",
+                "mode": "single_shot",
+                "execute": True,
+                "backend": "auto",
+            },
+        )
+
+        assert structured["backend_requested"] == "auto"
+        assert structured["backend_selected"] == "prompt"
+        assert structured["executed"] is False
+        assert "No executable backend available" in contents[0].text
+        assert "test query" in contents[0].text
 
     async def test_dialectic_thesis_mode(self):
         """Test dialectic thesis mode."""
@@ -185,6 +285,81 @@ class TestPromptMCPServer:
         assert advanced_state["schema_version"] == 2
         assert advanced_state["phase"] == "player"
         assert advanced_state["current_turn"] == 1
+
+    async def test_autocode_turn_coach_execute_via_codex_backend(self, monkeypatch):
+        """Coach execution should return feedback and approval detection without advancing state."""
+        requirements = "- [ ] Add auth\n- [ ] Add tests\n"
+        _, init_state = await call_tool(
+            "autocode", {"requirements": requirements, "mode": "init", "max_turns": 2}
+        )
+        _, player_struct = await call_tool("autocode_turn", {"role": "player", "state": init_state})
+
+        async def fake_execute_prompt(prompt, **kwargs):
+            assert "COACH agent" in prompt
+            assert kwargs["backend"] == "codex_mcp"
+            return ExecutionResult(
+                backend_requested="codex_mcp",
+                backend_selected="codex_mcp",
+                executed=True,
+                output=(
+                    "**REQUIREMENTS COMPLIANCE:**\n"
+                    "- [checkmark] Add auth - verified\n\n"
+                    "**ASSESSMENT:**\nCOACH APPROVED"
+                ),
+                details={"thread_id": "thread-456", "codex_tool": "codex"},
+            )
+
+        monkeypatch.setattr("hegelion.mcp.handlers.autocoding.execute_prompt", fake_execute_prompt)
+
+        _, coach_struct = await call_tool(
+            "autocode_turn",
+            {
+                "role": "coach",
+                "state": player_struct["state"],
+                "execute": True,
+                "backend": "codex_mcp",
+                "cwd": "/tmp/project",
+            },
+        )
+
+        assert coach_struct["backend_selected"] == "codex_mcp"
+        assert coach_struct["coach_feedback"].endswith("COACH APPROVED")
+        assert coach_struct["coach_approved_detected"] is True
+        assert coach_struct["state"]["phase"] == "coach"
+
+    async def test_autocode_turn_coach_execute_auto_prompt_fallback(self, monkeypatch):
+        """Coach execution should degrade to prompt-only metadata when auto cannot run."""
+        requirements = "- [ ] Add auth\n- [ ] Add tests\n"
+        _, init_state = await call_tool(
+            "autocode", {"requirements": requirements, "mode": "init", "max_turns": 2}
+        )
+        _, player_struct = await call_tool("autocode_turn", {"role": "player", "state": init_state})
+
+        async def fake_execute_prompt(prompt, **kwargs):
+            del prompt, kwargs
+            return ExecutionResult(
+                backend_requested="auto",
+                backend_selected="prompt",
+                executed=False,
+                execution_skipped_reason="No executable backend available",
+            )
+
+        monkeypatch.setattr("hegelion.mcp.handlers.autocoding.execute_prompt", fake_execute_prompt)
+
+        contents, coach_struct = await call_tool(
+            "autocode_turn",
+            {
+                "role": "coach",
+                "state": player_struct["state"],
+                "execute": True,
+                "backend": "auto",
+            },
+        )
+
+        assert coach_struct["backend_selected"] == "prompt"
+        assert coach_struct["coach_feedback"] is None
+        assert coach_struct["coach_approved_detected"] is False
+        assert "No executable backend available" in contents[0].text
 
     async def test_autocode_turn_invalid_transitions(self):
         """Invalid transitions should fail with expected/received phase and a hint."""

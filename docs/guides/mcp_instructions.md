@@ -46,15 +46,18 @@ For most cases, use `dialectic` with `mode="single_shot"`. It returns a single c
 
 **Then execute the returned prompt.** The prompt contains instructions for you to perform the dialectical reasoning.
 
-### Single-call CLI execution (optional)
+### Server-side execution (optional)
 
-If your MCP host does not reliably execute returned prompts (or you want `dialectic` mode=single_shot to return the final analysis directly), you can run the prompt through a configured LLM CLI.
+If your MCP host does not reliably execute returned prompts (or you want `dialectic` mode=single_shot to return the final analysis directly), you can ask Hegelion to run the prompt through a backend.
 
 **1) Configure the MCP server env:**
 
+- `HEGELION_EXECUTION_BACKEND=auto` (recommended): prefer Codex MCP, then CLI, then prompt-only fallback
 - `HEGELION_LLM_COMMAND_JSON` (preferred): a JSON array of command + args
 - `HEGELION_LLM_COMMAND` (fallback): a shell-style command string
 - `HEGELION_MCP_AUTO_EXECUTE=1` (optional): makes `execute` default to `true`
+- `HEGELION_CODEX_MCP_COMMAND_JSON` (optional): defaults to `["codex", "mcp-server"]`
+- `HEGELION_CODEX_SANDBOX=read-only` and `HEGELION_CODEX_APPROVAL_POLICY=never` are the default Codex coach settings
 
 Example `env` using Codex CLI (reads the prompt from stdin):
 
@@ -70,13 +73,14 @@ Example `env` using Codex CLI (reads the prompt from stdin):
 {
   "query": "Is open source software sustainable?",
   "response_style": "sections",
-  "execute": true
+  "execute": true,
+  "backend": "auto"
 }
 ```
 
 Notes:
 - `use_search: true` only adds instructions; your CLI must support tool use for real grounding.
-- The CLI runs locally. Prefer a text-only runner (or a locked-down sandbox) to avoid unintended file access.
+- `backend=auto` does not hard-fail when no executable backend is available. It returns prompt-only output with metadata describing the fallback.
 
 ## Alternative: `dialectic` (mode=workflow)
 
@@ -121,3 +125,12 @@ Use these when you want a player/coach loop for coding tasks:
 - `autocode` — Entry point (`mode`: `init`, `workflow`, `single_shot`)
 - `autocode_turn` — Execute one step (`role`: `player`, `coach`, `advance`)
 - `autocode_session` — Save/load session state (`action`: `save`, `load`)
+
+For Codex users, the intended `/hegelion` flow is:
+
+1. Current Codex session calls `autocode_turn(role="player")` and does the implementation work.
+2. Current Codex session calls `autocode_turn(role="coach", execute=true, backend="auto", cwd="<workspace>")`.
+3. Treat returned `coach_feedback` as authoritative if execution succeeded.
+4. Only advance the state with `autocode_turn(role="advance", coach_feedback=..., approved=...)`.
+
+Never self-approve by answering the coach prompt in the same Codex session.
